@@ -1,5 +1,5 @@
 import json
-from datetime import date
+from datetime import date, timedelta
 from pathlib import Path
 
 from sync.admission import classificar
@@ -76,3 +76,25 @@ def test_acervo_tem_prioridade_sobre_recente():
 
 def test_runtime_ausente_e_tratado_como_zero():
     assert classificar(_detalhe(vote_count=9999, runtime=None), HOJE, _cfg()) is None
+
+
+def test_lancamento_futuro_nunca_entra():
+    # Um filme com data de lançamento no futuro não pode entrar, mesmo que
+    # qualificasse pelas métricas de recente (votos ou popularidade).
+    futuro = _detalhe(vote_count=5, popularity=25.0, release_date=(HOJE + timedelta(days=30)).isoformat())
+    assert classificar(futuro, HOJE, _cfg()) is None
+
+
+def test_limite_recencia_dia_540_entra_como_recente():
+    # A janela de recência é exatamente meses_recente * 30 = 540 dias (inclusive).
+    # Um filme lançado exatamente 540 dias atrás qualifica para recente.
+    data_limite = (HOJE - timedelta(days=540)).isoformat()
+    filme = _detalhe(vote_count=5, release_date=data_limite)
+    assert classificar(filme, HOJE, _cfg()) == "recente"
+
+
+def test_limite_recencia_dia_541_fica_de_fora():
+    # Um dia fora da janela de recência exclui o filme.
+    data_alem_limite = (HOJE - timedelta(days=541)).isoformat()
+    filme = _detalhe(vote_count=5, release_date=data_alem_limite)
+    assert classificar(filme, HOJE, _cfg()) is None
