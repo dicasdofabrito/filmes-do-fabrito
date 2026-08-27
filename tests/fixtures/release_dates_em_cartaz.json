@@ -1,0 +1,17 @@
+{
+  "id": 1000,
+  "results": [
+    {
+      "iso_3166_1": "BR",
+      "release_dates": [
+        {"type": 3, "release_date": "2026-08-14T00:00:00.000Z"}
+      ]
+    },
+    {
+      "iso_3166_1": "US",
+      "release_dates": [
+        {"type": 3, "release_date": "2026-08-01T00:00:00.000Z"}
+      ]
+    }
+  ]
+}
