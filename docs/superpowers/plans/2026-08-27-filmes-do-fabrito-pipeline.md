@@ -558,7 +558,7 @@ Traz o `config.json` (primeiro ponto onde parâmetros são necessários) e as du
 - Produces:
   - `@dataclass(frozen=True) class Config` com atributos `admissao: Admissao`, `motor: Motor`, `build: Build`, `fileiras: tuple[str, ...]`
   - `@dataclass(frozen=True) class Admissao` com `min_votos_acervo: int`, `meses_recente: int`, `min_votos_recente: int`, `min_popularidade_recente: float`, `min_duracao: int`
-  - `@dataclass(frozen=True) class Motor` com `suavizacao_k: float`, `qualidade_m: int`, `peso_afinidade: float`, `pesos: dict[str, float]`, `min_avaliacoes: int`
+  - `@dataclass(frozen=True) class Motor` com `suavizacao_k: float`, `qualidade_m: int`, `peso_afinidade: float`, `min_avaliacoes: int`, `pesos: dict[str, float]` — nesta ordem: as Tasks 8 e 9 constroem `Motor(...)` posicionalmente nos testes
   - `@dataclass(frozen=True) class Build` com `limite_index_mb: float`, `tamanho_fileira: int`
   - `def carregar_config(caminho: Path) -> Config`
   - `def classificar(detalhe: dict, hoje: date, cfg: Admissao) -> str | None` devolvendo `"acervo"`, `"recente"` ou `None`
