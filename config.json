@@ -1,0 +1,40 @@
+{
+  "admissao": {
+    "min_votos_acervo": 50,
+    "meses_recente": 18,
+    "min_votos_recente": 5,
+    "min_popularidade_recente": 8.0,
+    "min_duracao": 60
+  },
+  "motor": {
+    "suavizacao_k": 2.0,
+    "qualidade_m": 500,
+    "peso_afinidade": 0.75,
+    "min_avaliacoes": 10,
+    "pesos": {
+      "keyword": 0.40,
+      "director": 0.20,
+      "cast": 0.15,
+      "genre": 0.15,
+      "decade": 0.06,
+      "language": 0.04
+    }
+  },
+  "build": {
+    "limite_index_mb": 6.0,
+    "tamanho_fileira": 24
+  },
+  "fileiras": [
+    "watchlist",
+    "novos",
+    "similar",
+    "vibe",
+    "diretor",
+    "ator",
+    "curto",
+    "classicos",
+    "aposta",
+    "ponto_cego",
+    "cinemas"
+  ]
+}
