@@ -1,11 +1,11 @@
-# Filmoteca — catálogo e motor de recomendação pessoal de filmes
+# Filmes do Fabrito — catálogo e motor de recomendação pessoal de filmes
 
 **Data:** 27 de agosto de 2026
 **Autor:** Fabio (design conduzido em sessão de brainstorming)
 **Status:** aprovado, pronto para plano de implementação
 
-> O nome `filmoteca` é provisório e afeta apenas o nome do repositório e do
-> diretório. Trocá-lo não muda nada do desenho.
+Nome do produto: **Filmes do Fabrito**. Repositório e diretório:
+`filmes-do-fabrito`.
 
 ---
 
@@ -55,7 +55,7 @@ explicitamente pelo autor.
 ### Estrutura de arquivos
 
 ```
-filmoteca/
+filmes-do-fabrito/
 ├─ .github/workflows/sync.yml      # cron diário 09:00 UTC (06:00 BRT)
 ├─ sync/
 │  ├─ fetch.py                     # cliente TMDB: export de ids, discover, detalhes
@@ -421,8 +421,10 @@ ter dados reais.
 
 Não bloqueiam a implementação; são valores a preencher.
 
-1. Nome definitivo do repositório.
-2. Chave da API do TMDB — gerar em themoviedb.org e cadastrar como segredo.
+1. Token de leitura da API do TMDB — gerar em themoviedb.org e cadastrar como
+   segredo `TMDB_TOKEN` no repositório.
+2. Token do GitHub de escopo restrito, para a escrita do perfil pelo navegador.
+   Só é necessário na etapa 5 da ordem de construção.
 3. Piso de `popularity` da trilha *Recente* — calibrar com dados reais na
    primeira carga.
 4. Limite de tamanho do `index.json` para o teste de regressão.
