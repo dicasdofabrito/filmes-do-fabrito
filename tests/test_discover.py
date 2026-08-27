@@ -1,4 +1,5 @@
 import httpx
+import pytest
 import respx
 
 from sync.discover import descobrir_fatiado, paginar
@@ -69,3 +70,77 @@ async def test_descobrir_fatiado_divide_quando_estoura_o_teto():
 
     assert sorted(r["id"] for r in resultados) == [10, 20]
     assert len(chamadas) >= 3
+
+
+@respx.mock
+async def test_descobrir_fatiado_um_ano_excedendo_teto_subdivide_por_data():
+    """Um ano inteiro que excede o teto é subdividido em intervalos menores."""
+    chamadas: list[dict] = []
+
+    def responder(request: httpx.Request) -> httpx.Response:
+        params = dict(request.url.params)
+        chamadas.append(params)
+        inicio = params.get("primary_release_date.gte", "")
+        fim = params.get("primary_release_date.lte", "")
+
+        # Ano completo (2005-01-01 a 2005-12-31) excede o teto
+        if inicio == "2005-01-01" and fim == "2005-12-31":
+            return _pagina(1, 1, [], 12000)
+
+        # Qualquer intervalo menor que um ano completo cabe (retorna 1000 resultados)
+        # Usa IDs diferentes por primeira data para verificar recursão
+        if inicio.startswith("2005"):
+            id_base = int(inicio[5:7]) * 100 + int(inicio[8:10])
+            return _pagina(1, 1, [id_base], 1000)
+
+        # Fallback para outras datas
+        return _pagina(1, 1, [], 0)
+
+    respx.get("https://api.themoviedb.org/3/discover/movie").mock(side_effect=responder)
+
+    async with TMDBClient("tok") as cliente:
+        resultados = await descobrir_fatiado(
+            cliente, {}, ano_inicial=2005, ano_final=2005
+        )
+
+    # Verifica que pelo menos um request foi feito com intervalo mais estreito
+    # que um ano completo
+    tem_intervalo_estreito = any(
+        (req.get("primary_release_date.gte", "").startswith("2005")
+         and req.get("primary_release_date.lte", "").startswith("2005")
+         and not (req.get("primary_release_date.gte") == "2005-01-01"
+                  and req.get("primary_release_date.lte") == "2005-12-31"))
+        for req in chamadas
+    )
+    assert tem_intervalo_estreito, "Deve haver pelo menos um intervalo mais estreito que o ano"
+
+    # Verifica que resultados foram recuperados (não vazio)
+    assert len(resultados) > 0, "Deve ter recuperado resultados das subfaixas"
+
+
+@respx.mock
+async def test_descobrir_fatiado_piso_um_dia_excedendo_teto_emite_aviso(caplog):
+    """Um dia que excede o teto emite aviso e retorna (não levanta)."""
+
+    def responder(request: httpx.Request) -> httpx.Response:
+        # Simula um cenário patológico: TODOS os intervalos excedem o teto,
+        # inclusive um único dia. Força a recursão até o piso e o aviso.
+        # Retorna 500 resultados (página 1 tem 500, total_results > cap)
+        return _pagina(1, 1, list(range(1, 501)), 11000)
+
+    respx.get("https://api.themoviedb.org/3/discover/movie").mock(side_effect=responder)
+
+    with caplog.at_level("WARNING"):
+        async with TMDBClient("tok") as cliente:
+            resultados = await descobrir_fatiado(
+                cliente, {}, ano_inicial=2010, ano_final=2010
+            )
+
+    # Não deve levantar exceção
+    assert resultados is not None
+
+    # Deve ter emitido um aviso sobre um dia que excede o teto
+    warning_msgs = [record.message for record in caplog.records if record.levelname == "WARNING"]
+    assert len(warning_msgs) > 0, f"Deve haver ao menos um aviso. Avisos capturados: {warning_msgs}"
+    assert any("excedendo" in msg.lower() or "2010" in msg for msg in warning_msgs), \
+        f"Deve haver um aviso sobre exced�ncia ou a data. Avisos: {warning_msgs}"
