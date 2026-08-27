@@ -17,7 +17,12 @@
 - Python 3.12. Sem framework web neste plano.
 - Autenticação no TMDB pelo **v4 Read Access Token**, header `Authorization: Bearer <token>`, lido da variável de ambiente `TMDB_TOKEN`. Nunca em arquivo commitado, nunca em parâmetro de URL.
 - Idioma das requisições ao TMDB: `language=pt-BR`, `region=BR`.
-- Nomes de identificadores em inglês; comentários, docstrings e mensagens de commit em português.
+- **Idioma do código:** identificadores de domínio em português (`classificar`,
+  `montar_filme`, `descobrir_fatiado`, variáveis locais). O inglês é preservado
+  em dois lugares, e só neles: nos campos do dataclass `Movie`, que espelham o
+  contrato JSON consumido pelo site, e onde o nome reproduz um campo da API do
+  TMDB (`vote_count`, `release_date`). Comentários, docstrings e mensagens de
+  commit em português.
 - O catálogo é `data/catalog.jsonl`, **uma linha por filme, ordenado por `id` crescente**. A ordenação é requisito, não estilo: é o que permite ao git guardar só o delta diário.
 - Nenhuma etapa do pipeline escreve direto em `data/` ou `site/data/`. Tudo passa por diretório temporário e é movido no fim. Falhou, não move nada.
 - Cortes de admissão comuns às duas trilhas: `adult = false`, `runtime >= 60`.
