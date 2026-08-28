@@ -235,3 +235,51 @@ def test_ponto_cego_ignora_dimensao_abaixo_do_piso_populacional():
     assert len(fileiras[0].movie_ids) == 3  # Build.tamanho_fileira do _cfg
     assert all(900 in catalogo[i].genres for i in fileiras[0].movie_ids)
     assert not any(5 in catalogo[i].genres for i in fileiras[0].movie_ids)
+
+
+def test_similar_usa_ancora_de_qualidade_quando_afinidade_empata():
+    """D1: _similar precisa usar a mesma maquinaria do motor principal —
+    afinidade normalizada combinada com a âncora de qualidade, no mesmo
+    split de `peso_afinidade`. Aqui os dois candidatos compartilham a
+    keyword da referência (afinidade empatada, amplitude zero), então o
+    desempate só pode vir da qualidade — antes dessa correção, `_similar`
+    ordenava por afinidade crua e ignorava qualidade por completo,
+    deixando o empate à mercê da ordem arbitrária de um `set`."""
+    referencia = _filme(1, keywords=(900,))
+    candidato_qualidade_alta = _filme(2, keywords=(900,))
+    candidato_qualidade_baixa = _filme(3, keywords=(900,))
+    catalogo = {
+        1: referencia,
+        2: candidato_qualidade_alta,
+        3: candidato_qualidade_baixa,
+    }
+    perfil = Profile(movies={1: Entry(seen=True, rating=1, at="2026-08-01")})
+
+    fileiras = montar_fileiras(
+        _ctx(
+            catalogo,
+            perfil,
+            ("similar",),
+            qualities={1: 0.5, 2: 0.9, 3: 0.1},
+        )
+    )
+
+    assert fileiras[0].key == "similar"
+    assert fileiras[0].movie_ids == (2, 3)
+
+
+def test_similar_exclui_a_referencia_e_os_ja_vistos():
+    referencia = _filme(1, keywords=(900,))
+    ja_visto = _filme(2, keywords=(900,))
+    candidato = _filme(3, keywords=(900,))
+    catalogo = {1: referencia, 2: ja_visto, 3: candidato}
+    perfil = Profile(
+        movies={
+            1: Entry(seen=True, rating=1, at="2026-08-01"),
+            2: Entry(seen=True, at="2026-08-01"),
+        }
+    )
+
+    fileiras = montar_fileiras(_ctx(catalogo, perfil, ("similar",)))
+
+    assert fileiras[0].movie_ids == (3,)

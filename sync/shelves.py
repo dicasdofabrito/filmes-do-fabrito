@@ -91,10 +91,34 @@ def _similar(ctx: Contexto) -> tuple[str, tuple[int, ...]]:
     gosto = gosto_de_um_filme(filme, ctx.catalogo)
 
     candidatos = _nao_vistos(ctx) - {referencia}
+    if not candidatos:
+        return f"Porque você gostou de {filme.title}", ()
+
     afinidades = {
         i: afinidade(ctx.catalogo[i], gosto, ctx.cfg.motor.pesos) for i in candidatos
     }
-    melhores = sorted(afinidades, key=afinidades.get, reverse=True)
+
+    # Mesma maquinaria do motor principal (`pontuar`): afinidade
+    # normalizada por min-max combinada com a âncora de qualidade, no
+    # mesmo split de `peso_afinidade` — não só afinidade crua. Sem a
+    # âncora, a fileira enchia de filmes obscuros que só compartilham
+    # keyword com a referência, sem nenhum piso de qualidade.
+    peso = ctx.cfg.motor.peso_afinidade
+    menor, maior = min(afinidades.values()), max(afinidades.values())
+    amplitude = maior - menor
+
+    if amplitude < 1e-12:
+        # Amplitude zero: sem informação de afinidade pra discriminar,
+        # volta pra qualidade pura — mesma degradação de `pontuar`.
+        scores = {i: ctx.pontuacao.qualities.get(i, 0.0) for i in candidatos}
+    else:
+        scores = {
+            i: peso * ((afinidades[i] - menor) / amplitude)
+            + (1 - peso) * ctx.pontuacao.qualities.get(i, 0.0)
+            for i in candidatos
+        }
+
+    melhores = sorted(scores, key=scores.get, reverse=True)
     limite = ctx.cfg.build.tamanho_fileira
     return f"Porque você gostou de {filme.title}", tuple(melhores[:limite])
 
