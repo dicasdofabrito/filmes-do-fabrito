@@ -78,9 +78,14 @@ async def _ids_carga_inicial(
     filmes novos que ainda não acumularam consenso. `classificar` continua
     sendo a autoridade final — este filtro só poupa rede.
     """
+    # Sem "region": no /discover ele interage com o filtro de data de
+    # lançamento (presente em toda fatia via _fatiar_intervalo) e restringiria
+    # silenciosamente o catálogo a filmes com lançamento no Brasil — cortando
+    # exatamente a cauda longa obscura, estrangeira e antiga que essa engine
+    # existe para trazer. "language" continua, porque controla só os títulos
+    # devolvidos em pt-BR.
     params_base = {
         "language": "pt-BR",
-        "region": "BR",
         "sort_by": "popularity.desc",
     }
 
@@ -168,7 +173,12 @@ async def executar(
     protegidos = set(perfil.movies)
     nomes = _carregar_nomes(raiz)
 
-    async with TMDBClient(token) as cliente:
+    # Orçamento de retry maior que o padrão de TMDBClient: uma rodada de
+    # carga inicial faz 100 mil+ requisições ao longo de 40 minutos contra
+    # uma API com limite de taxa — improvável não é a palavra, é esperado
+    # que algum id tropece nisso. Os defaults da classe continuam os de
+    # sempre; só a chamada do pipeline pede mais paciência.
+    async with TMDBClient(token, max_retries=8, backoff_base=1.0) as cliente:
         alvos = await _ids_para_processar(
             cliente, raiz, hoje, carga_inicial, cfg.admissao
         )
@@ -241,16 +251,27 @@ async def executar(
     caminho_catalogo = raiz / "data" / "catalog.jsonl"
     temporario_catalogo = caminho_catalogo.with_name(caminho_catalogo.name + ".tmp")
     try:
-        escrever_site_data(temporario_site, catalogo, pontuacao, fileiras, cfg.build)
+        # O catálogo é publicado PRIMEIRO, antes do site. Ele é o artefato
+        # caro — até 40 minutos de chamadas ao TMDB numa carga inicial — e a
+        # fonte de verdade; site/data/ é inteiramente derivado dele e
+        # reconstrói em segundos. Se `escrever_site_data` falhar (por
+        # exemplo por estourar `limite_index_mb`), a rodada perde só a
+        # etapa barata: o catálogo já está salvo, e a próxima rodada
+        # reconstrói o site sem refazer nenhuma chamada de rede. A ordem
+        # antiga fazia o oposto — arriscava jogar fora 40 minutos de fetch
+        # pela etapa mais barata do pipeline, exatamente ao contrário do
+        # que a atomicidade deveria proteger.
+        #
         # Grava o catálogo por um arquivo temporário ao lado do definitivo;
         # escrever_catalogo continua fazendo a serialização, só não é mais
-        # ela quem decide o caminho final.
+        # ela quem decide o caminho final. os.replace é uma renomeação
+        # atômica tanto no Windows quanto no POSIX.
         escrever_catalogo(temporario_catalogo, catalogo.values())
-
-        # Daqui pra frente nada mais pode falhar: as duas publicações ficam
-        # lado a lado, sem nenhum passo arriscado entre elas. os.replace é
-        # uma renomeação atômica tanto no Windows quanto no POSIX.
         os.replace(temporario_catalogo, caminho_catalogo)
+
+        # Só agora o site é construído e publicado — derivado do catálogo
+        # que acabou de ser gravado, já em segurança em disco.
+        escrever_site_data(temporario_site, catalogo, pontuacao, fileiras, cfg.build)
         publicar_atomico(temporario_site, raiz / "site" / "data")
     finally:
         # Um diretório temporário órfão a cada falha, num job diário
@@ -263,6 +284,14 @@ async def executar(
 
 
 def main() -> None:
+    # INFO no stderr: uma carga inicial roda ~40 minutos sem interação, e
+    # sem log não há como distinguir trabalho de travamento.
+    logging.basicConfig(
+        level=logging.INFO,
+        stream=sys.stderr,
+        format="%(asctime)s %(levelname)s %(name)s: %(message)s",
+    )
+
     parser = argparse.ArgumentParser(prog="sync")
     parser.add_argument(
         "--carga-inicial",

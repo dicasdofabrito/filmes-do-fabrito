@@ -3,12 +3,20 @@
 from __future__ import annotations
 
 import asyncio
+import logging
 import re
 from collections.abc import Iterable
 
 from sync.tmdb import TMDBClient, TMDBError
 
+logger = logging.getLogger(__name__)
+
 CAMPOS_EXTRAS = "keywords,credits,release_dates"
+
+# A cada quantos fetches concluídos um log de progresso é emitido. Numa carga
+# inicial de 40 minutos e 100 mil+ ids, sem isso não há como distinguir
+# trabalho de travamento.
+INTERVALO_LOG = 500
 
 # 404 (nao encontrado) e 410 (removido) significam que o filme deixou de
 # existir no TMDB — fusao de duplicatas, remocao de conteudo. Isso nao e
@@ -41,10 +49,14 @@ async def buscar_detalhes(
     são reportados ao chamador para saírem do catálogo. Qualquer outro erro
     continua definitivo e propaga, abortando a busca inteira.
     """
+    ids = tuple(ids)
+    total = len(ids)
     limitador = asyncio.Semaphore(concorrencia)
     removidos: set[int] = set()
+    concluidos = 0
 
     async def um(id_: int) -> dict | None:
+        nonlocal concluidos
         async with limitador:
             try:
                 return await cliente.get(
@@ -57,6 +69,12 @@ async def buscar_detalhes(
                     removidos.add(id_)
                     return None
                 raise
+            finally:
+                # Incremento é seguro sem lock: asyncio é cooperativo e não
+                # há `await` entre a leitura e a escrita de `concluidos`.
+                concluidos += 1
+                if concluidos % INTERVALO_LOG == 0:
+                    logger.info("detalhes buscados: %d/%d", concluidos, total)
 
     resultados = await asyncio.gather(*(um(i) for i in ids))
     detalhes = [r for r in resultados if r is not None]
