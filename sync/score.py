@@ -86,7 +86,17 @@ def pontuar(catalogo: dict[int, Movie], gosto: Taste, cfg: Motor) -> Scoring:
 
     menor = min(afinidades.values())
     maior = max(afinidades.values())
-    amplitude = (maior - menor) or 1.0
+    amplitude = maior - menor
+
+    # Amplitude zero: sem informação de afinidade, volta para qualidade pura.
+    # Isso protege contra dois problemas: (1) quando a amplitude é exatamente zero
+    # (todos os filmes têm mesma afinidade), o score não deve ser comprimido para
+    # 25% da qualidade; (2) flutuações de ponto flutuante podem produzir uma
+    # amplitude minúscula que dividiria valores para fora de [0, 1].
+    if amplitude < 1e-12:
+        return Scoring(
+            scores=dict(qualidades), affinities=afinidades, qualities=qualidades
+        )
 
     scores = {
         id_: cfg.peso_afinidade * ((afinidades[id_] - menor) / amplitude)

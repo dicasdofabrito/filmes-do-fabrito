@@ -106,3 +106,42 @@ def test_scores_ficam_entre_zero_e_um():
 def test_catalogo_vazio_nao_quebra():
     resultado = pontuar({}, Taste(weights={}, n_ratings=40), _motor())
     assert resultado.scores == {}
+
+
+def test_amplitude_zero_com_dois_filmes_iguais_volta_ao_qualidade():
+    """Quando a afinidade é idêntica em todos os filmes, o score não deve ser
+    comprimido para 25% da qualidade. Deve ser exatamente a qualidade.
+
+    Dois filmes com mesmos gêneros, perfil maduro (n_ratings=40 > 10),
+    mas notas muito diferentes. A amplitude de afinidade é zero porque
+    ambos têm a mesma característica. O score deve ser a qualidade pura,
+    e o filme de nota mais alta deve vencer.
+    """
+    catalogo = {
+        1: _filme(1, genres=(18,), media=8.5, votos=10000),
+        2: _filme(2, genres=(18,), media=5.0, votos=10000),
+    }
+    gosto = Taste(weights={("genre", 18): 1.0}, n_ratings=40)
+
+    resultado = pontuar(catalogo, gosto, _motor())
+
+    # Os scores devem ser iguais às qualidades (amplitude zero cai para qualidade pura)
+    assert resultado.scores[1] == resultado.qualities[1]
+    assert resultado.scores[2] == resultado.qualities[2]
+
+    # O filme com melhor qualidade ainda vence
+    assert resultado.scores[1] > resultado.scores[2]
+
+
+def test_catalogo_um_filme_nao_quebra_com_perfil_maduro():
+    """Um catálogo com apenas um filme não deve quebrar, mesmo com perfil maduro.
+    A amplitude é zero (não há min e max distintos), então cai para qualidade pura.
+    """
+    catalogo = {1: _filme(1, genres=(18,), media=7.5, votos=10000)}
+    gosto = Taste(weights={("genre", 18): 1.0}, n_ratings=40)
+
+    resultado = pontuar(catalogo, gosto, _motor())
+
+    # Não deve quebrar
+    assert resultado.scores[1] == resultado.qualities[1]
+    assert 0.0 <= resultado.scores[1] <= 1.0
