@@ -48,6 +48,12 @@ def escrever_site_data(
                 "g": list(f.genres),
                 "k": list(f.keywords),
                 "s": round(pontuacao.scores.get(f.id, 0.0), 4),
+                # "n": vote_count — o onboarding de partida a frio precisa
+                # dos 200 filmes de maior vote_count, e o site não pode
+                # calcular isso sem esse número estar publicado.
+                "n": f.vote_count,
+                # "th": theatrical — a fileira "Nos cinemas" filtra por ele.
+                "th": f.theatrical,
             }
             for f in ordenados
         ]

@@ -26,6 +26,10 @@ class Movie:
     track: str
     theatrical: bool
     added: str
+    # Default "": construções diretas em teste (fora de `montar_filme`) não
+    # precisam declarar campos que não usam para a asserção em questão.
+    poster_path: str = ""
+    overview: str = ""
 
     def to_row(self) -> dict:
         """Serializa com chaves curtas — o arquivo tem dezenas de milhares
@@ -45,6 +49,8 @@ class Movie:
             "st": self.track,
             "th": self.theatrical,
             "a": self.added,
+            "p": self.poster_path,
+            "ov": self.overview,
         }
 
     @classmethod
@@ -64,9 +70,11 @@ class Movie:
             track=row["st"],
             theatrical=row["th"],
             # `catalog.jsonl` é dado de projeto com vida longa versionado no
-            # git; um arquivo gravado antes deste campo existir não pode
-            # virar ilegível — degrada para string vazia.
+            # git; um arquivo gravado antes desses campos existirem não pode
+            # virar ilegível — degradam para string vazia.
             added=row.get("a", ""),
+            poster_path=row.get("p", ""),
+            overview=row.get("ov", ""),
         )
 
 
@@ -95,6 +103,8 @@ def montar_filme(
         track=track,
         theatrical=theatrical,
         added=added,
+        poster_path=detalhe.get("poster_path") or "",
+        overview=detalhe.get("overview") or "",
     )
 
 

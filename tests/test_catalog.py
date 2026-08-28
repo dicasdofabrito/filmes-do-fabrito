@@ -19,6 +19,8 @@ def _filme(id_: int = 603, **extras) -> Movie:
         track="acervo",
         theatrical=False,
         added="2026-08-27",
+        poster_path="/abc123.jpg",
+        overview="Um programador descobre que a realidade é uma simulação.",
     )
     return Movie(**{**base, **extras})
 
@@ -32,7 +34,11 @@ def test_a_linha_usa_chaves_abreviadas():
     linha = _filme().to_row()
     assert linha["t"] == "Matrix"
     assert linha["k"] == [1701, 9743]
+    assert linha["p"] == "/abc123.jpg"
+    assert linha["ov"].startswith("Um programador")
     assert "title" not in linha
+    assert "poster_path" not in linha
+    assert "overview" not in linha
 
 
 def test_escrita_ordena_por_id(tmp_path: Path):
@@ -55,6 +61,18 @@ def test_from_row_tolera_added_ausente():
     assert Movie.from_row(linha).added == ""
 
 
+def test_from_row_tolera_poster_e_overview_ausentes():
+    """C1: mesmo raciocínio de B9, para os campos `p` e `ov` — um
+    catalog.jsonl gravado antes deles existirem não pode virar
+    ilegível."""
+    linha = _filme().to_row()
+    del linha["p"]
+    del linha["ov"]
+    filme = Movie.from_row(linha)
+    assert filme.poster_path == ""
+    assert filme.overview == ""
+
+
 def test_montar_filme_extrai_diretor_e_elenco_do_credits():
     detalhe = {
         "id": 603,
@@ -73,6 +91,8 @@ def test_montar_filme_extrai_diretor_e_elenco_do_credits():
                 {"id": 111, "job": "Producer"},
             ],
         },
+        "poster_path": "/matrix.jpg",
+        "overview": "Um hacker descobre a verdade sobre sua realidade.",
     }
     filme = montar_filme(detalhe, track="acervo", theatrical=False, added="2026-08-27")
 
@@ -80,6 +100,8 @@ def test_montar_filme_extrai_diretor_e_elenco_do_credits():
     assert filme.cast == (0, 1, 2, 3, 4)  # só os cinco primeiros
     assert filme.year == 1999
     assert filme.keywords == (1701,)
+    assert filme.poster_path == "/matrix.jpg"
+    assert filme.overview == "Um hacker descobre a verdade sobre sua realidade."
 
 
 def test_montar_filme_tolera_campos_ausentes():
@@ -89,3 +111,18 @@ def test_montar_filme_tolera_campos_ausentes():
     assert filme.year is None
     assert filme.keywords == ()
     assert filme.directors == ()
+    assert filme.poster_path == ""
+    assert filme.overview == ""
+
+
+def test_montar_filme_tolera_poster_e_overview_nulos():
+    """poster_path e overview podem vir como `null` explícito do TMDB, não
+    só ausentes — `or ""` cobre os dois casos."""
+    filme = montar_filme(
+        {"id": 7, "title": "X", "poster_path": None, "overview": None},
+        track="recente",
+        theatrical=True,
+        added="2026-08-27",
+    )
+    assert filme.poster_path == ""
+    assert filme.overview == ""
