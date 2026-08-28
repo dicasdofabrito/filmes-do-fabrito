@@ -1,0 +1,672 @@
+{
+  "acampamento de ferias": [
+    5767
+  ],
+  "acidente de aviao": [
+    249530
+  ],
+  "adocao": [
+    2393
+  ],
+  "agente disfarcado": [
+    11199
+  ],
+  "alcoolismo": [
+    7464
+  ],
+  "alegria": [
+    277029,
+    325045
+  ],
+  "alto mar": [
+    191585
+  ],
+  "amadurecimento": [
+    10683
+  ],
+  "ambicao": [
+    3734
+  ],
+  "amizade": [
+    6054
+  ],
+  "amizade improvavel": [
+    167982
+  ],
+  "amor proibido": [
+    3691
+  ],
+  "android": [
+    803
+  ],
+  "angustia": [
+    365496,
+    280263
+  ],
+  "antartida": [
+    14728
+  ],
+  "apartheid": [
+    4106
+  ],
+  "apocalipse zumbi": [
+    12377
+  ],
+  "arrependimento": [
+    802
+  ],
+  "artes marciais": [
+    779
+  ],
+  "artico": [
+    288649
+  ],
+  "assalto": [
+    10051
+  ],
+  "assassinato": [
+    9826
+  ],
+  "assassino em serie": [
+    10714
+  ],
+  "aviao": [
+    3800
+  ],
+  "bairro pobre": [
+    2394,
+    100
+  ],
+  "bomba relogio": [
+    258
+  ],
+  "boxe": [
+    209476
+  ],
+  "bruxaria": [
+    616,
+    40931
+  ],
+  "bunker": [
+    2321
+  ],
+  "caca ao tesouro": [
+    6956
+  ],
+  "cacada humana": [
+    226499
+  ],
+  "cancer": [
+    10163
+  ],
+  "casa mal-assombrada": [
+    3358
+  ],
+  "casamento": [
+    13027
+  ],
+  "cassino": [
+    585
+  ],
+  "castelo": [
+    3098
+  ],
+  "cavaleiro medieval": [
+    10466
+  ],
+  "caverna": [
+    1964
+  ],
+  "cegueira": [
+    164092
+  ],
+  "ciborgue": [
+    679
+  ],
+  "circo": [
+    291
+  ],
+  "ciume": [
+    931
+  ],
+  "civilizacao perdida": [
+    197052
+  ],
+  "clonagem": [
+    11628
+  ],
+  "colegio": [
+    6270
+  ],
+  "colonialismo": [
+    158217
+  ],
+  "competicao": [
+    271
+  ],
+  "conspiracao": [
+    10410
+  ],
+  "conto de fadas": [
+    3205
+  ],
+  "coragem": [
+    299369,
+    3930
+  ],
+  "corrida": [
+    40870
+  ],
+  "corrida espacial": [
+    156836
+  ],
+  "corrupcao politica": [
+    417,
+    181659
+  ],
+  "cowboy": [
+    155291
+  ],
+  "crime organizado": [
+    10291
+  ],
+  "crise de meia-idade": [
+    1599
+  ],
+  "culpa": [
+    33720
+  ],
+  "danca": [
+    1691
+  ],
+  "deficiencia fisica": [
+    162735
+  ],
+  "demencia": [
+    2689
+  ],
+  "dependencia quimica": [
+    1803
+  ],
+  "desemprego": [
+    156052
+  ],
+  "deserto": [
+    18034
+  ],
+  "desespero": [
+    2300,
+    308750
+  ],
+  "dinossauro": [
+    12616
+  ],
+  "direitos civis": [
+    4098
+  ],
+  "distopia": [
+    4565
+  ],
+  "ditadura": [
+    7606
+  ],
+  "divorcio": [
+    15160
+  ],
+  "doenca mental": [
+    41329
+  ],
+  "doenca terminal": [
+    6564
+  ],
+  "duplo agente": [
+    3637
+  ],
+  "egito antigo": [
+    157894
+  ],
+  "envelhecimento": [
+    4995
+  ],
+  "escravidao": [
+    2831
+  ],
+  "espaco": [
+    252634,
+    9882
+  ],
+  "esperanca": [
+    3929
+  ],
+  "esperanca ingenua": [
+    2487,
+    6139
+  ],
+  "espionagem": [
+    5265
+  ],
+  "estrada": [
+    7312,
+    253043
+  ],
+  "euforia": [
+    236942
+  ],
+  "exilio": [
+    4849
+  ],
+  "experimento genetico": [
+    163561
+  ],
+  "exploracao espacial": [
+    191132
+  ],
+  "familia disfuncional": [
+    10041
+  ],
+  "familia real": [
+    4833,
+    2471
+  ],
+  "fantasma": [
+    162846
+  ],
+  "faroeste": [
+    305941
+  ],
+  "fazenda": [
+    4932
+  ],
+  "fim do mundo": [
+    4458,
+    12332,
+    4565
+  ],
+  "floresta": [
+    5774
+  ],
+  "found footage": [
+    163053
+  ],
+  "fuga": [
+    10685
+  ],
+  "fuga da prisao": [
+    9777
+  ],
+  "furacao": [
+    2215
+  ],
+  "gangster": [
+    3149
+  ],
+  "gladiador": [
+    1394
+  ],
+  "golpe de estado": [
+    6285,
+    361213
+  ],
+  "gravidez na adolescencia": [
+    173186
+  ],
+  "grecia antiga": [
+    162861
+  ],
+  "guerra civil": [
+    393
+  ],
+  "guerra do vietna": [
+    2957
+  ],
+  "guerra fria": [
+    2106
+  ],
+  "guerra nuclear": [
+    677
+  ],
+  "hackers": [
+    2157,
+    12361
+  ],
+  "heranca": [
+    10911
+  ],
+  "holocausto": [
+    375138
+  ],
+  "hospital": [
+    11612
+  ],
+  "hospital psiquiatrico": [
+    10323,
+    11857
+  ],
+  "humilhacao": [
+    33740
+  ],
+  "idade media": [
+    355987
+  ],
+  "ilha": [
+    2041
+  ],
+  "imigracao": [
+    1900
+  ],
+  "infiltracao": [
+    1568
+  ],
+  "inteligencia artificial": [
+    378084
+  ],
+  "inundacao": [
+    173272
+  ],
+  "invasao alienigena": [
+    14909
+  ],
+  "inveja": [
+    155624
+  ],
+  "investigacao criminal": [
+    157241,
+    5340
+  ],
+  "isolamento": [
+    1533
+  ],
+  "jogo mortal": [
+    220572
+  ],
+  "julgamento": [
+    11038
+  ],
+  "labirinto": [
+    18129,
+    2158
+  ],
+  "lobisomem": [
+    12564
+  ],
+  "loop temporal": [
+    10854
+  ],
+  "loucura": [
+    41410,
+    6255
+  ],
+  "luto": [
+    9872
+  ],
+  "mafia": [
+    10391
+  ],
+  "mansao": [
+    12545
+  ],
+  "maternidade": [
+    176227
+  ],
+  "medo": [
+    13073
+  ],
+  "melancolia": [
+    4232
+  ],
+  "metropole": [
+    1761
+  ],
+  "mitologia grega": [
+    2036
+  ],
+  "mitologia nordica": [
+    179101
+  ],
+  "monstro gigante": [
+    161791,
+    11100
+  ],
+  "montanha": [
+    1262
+  ],
+  "multiverso": [
+    336874
+  ],
+  "musica e banda": [
+    18001,
+    4048
+  ],
+  "naufragio": [
+    2580
+  ],
+  "navio": [
+    3799
+  ],
+  "ninja": [
+    10278
+  ],
+  "nostalgia": [
+    5609
+  ],
+  "obsessao": [
+    1523
+  ],
+  "oceano": [
+    270
+  ],
+  "orfao": [
+    13014
+  ],
+  "pandemia": [
+    188973
+  ],
+  "pantano": [
+    4551
+  ],
+  "paranoia": [
+    2340
+  ],
+  "paternidade": [
+    162225
+  ],
+  "perseguicao": [
+    3713
+  ],
+  "peste": [
+    188959
+  ],
+  "pirata": [
+    12988
+  ],
+  "pobreza": [
+    12987
+  ],
+  "primeira guerra mundial": [
+    2504
+  ],
+  "primeiro amor": [
+    157303
+  ],
+  "primeiro contato": [
+    211248
+  ],
+  "prisao": [
+    378
+  ],
+  "racismo": [
+    12425
+  ],
+  "raiva": [
+    18047,
+    14837
+  ],
+  "realidade virtual": [
+    4563
+  ],
+  "rebeliao": [
+    11196
+  ],
+  "redencao": [
+    11436
+  ],
+  "reencontro familiar": [
+    18187
+  ],
+  "refugiados": [
+    972
+  ],
+  "resgate": [
+    10084
+  ],
+  "resiliencia": [
+    247882
+  ],
+  "revolucao": [
+    2020
+  ],
+  "rivalidade": [
+    9823
+  ],
+  "robo": [
+    14544
+  ],
+  "roma antiga": [
+    5049
+  ],
+  "roubo": [
+    642,
+    14604
+  ],
+  "samurai": [
+    1462
+  ],
+  "segunda guerra mundial": [
+    1956
+  ],
+  "selva": [
+    10787
+  ],
+  "sequestro": [
+    1930
+  ],
+  "sequestro de refem": [
+    1562
+  ],
+  "sobrevivencia": [
+    10349
+  ],
+  "sobrevivencia em grupo": [
+    10349
+  ],
+  "solidao": [
+    9957,
+    190742
+  ],
+  "solidariedade": [
+    1577
+  ],
+  "submarino": [
+    339
+  ],
+  "suburbio": [
+    14632,
+    10532
+  ],
+  "suicidio": [
+    236
+  ],
+  "super-heroi": [
+    9715
+  ],
+  "surdocegueira": [
+    321269
+  ],
+  "surto de virus": [
+    17995
+  ],
+  "tensao": [
+    288394,
+    10481
+  ],
+  "terremoto": [
+    3521
+  ],
+  "terrorismo": [
+    13015
+  ],
+  "torneio": [
+    12380
+  ],
+  "traicao": [
+    10085
+  ],
+  "traicao amorosa": [
+    1326
+  ],
+  "trem": [
+    13008
+  ],
+  "triangulo amoroso": [
+    128
+  ],
+  "tristeza": [
+    1647
+  ],
+  "tsunami": [
+    6941
+  ],
+  "tubarao": [
+    15097
+  ],
+  "ufologia": [
+    9738
+  ],
+  "universidade": [
+    3616,
+    13160
+  ],
+  "universo paralelo": [
+    243230
+  ],
+  "utopia": [
+    3469
+  ],
+  "vampiro": [
+    3133
+  ],
+  "vazio existencial": [
+    181324
+  ],
+  "vergonha": [
+    188720
+  ],
+  "viagem espacial": [
+    3801
+  ],
+  "viagem no tempo": [
+    4379
+  ],
+  "vida aliegena": [
+    194486
+  ],
+  "vigilancia em massa": [
+    18420
+  ],
+  "vigilante": [
+    7002
+  ],
+  "vinganca": [
+    9748
+  ],
+  "viuvez": [
+    4129
+  ],
+  "vulcao": [
+    3347
+  ],
+  "zona rural": [
+    255834,
+    548
+  ]
+}

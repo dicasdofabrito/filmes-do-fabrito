@@ -94,7 +94,8 @@ snapshot completo por dia custaria centenas de MB por ano.
 ```json
 {"id":603,"t":"Matrix","y":1999,"r":136,"g":[28,878],
  "k":[1701,9743,4458],"v":8.2,"n":25431,
- "d":[9339],"c":[6384,2975,10990],"l":"en","st":"acervo","th":false}
+ "d":[9339],"c":[6384,2975,10990],"l":"en","st":"acervo","th":false,
+ "a":"2026-08-27","p":"/matrix.jpg","ov":"Um hacker descobre que a realidade é uma simulação."}
 ```
 
 | Campo | Significado |
@@ -107,6 +108,9 @@ snapshot completo por dia custaria centenas de MB por ano.
 | `l` | idioma original |
 | `st` | trilha de admissão: `acervo` ou `recente` |
 | `th` | `true` se está em cartaz e ainda sem lançamento doméstico |
+| `a` | data (ISO) em que o filme entrou no catálogo |
+| `p` | `poster_path` do TMDB, para montar a URL do pôster |
+| `ov` | sinopse (`overview` do TMDB), para a ficha do filme |
 
 ### 4.2 `data/profile.json`
 
@@ -138,6 +142,26 @@ em inglês, as consultas do autor são em português.
 ```
 
 Cerca de 250 expressões na versão inicial. Editável à mão para crescer.
+
+### 4.4 `site/data/index.json` vs. `data/catalog.jsonl` — quem serve o quê
+
+`site/data/index.json` é o arquivo enxuto de navegação e ranking: id, título,
+ano, duração, gêneros, keywords e score, para os ~40 mil filmes do catálogo.
+Ele existe pra ser carregado inteiro pelo navegador e filtrado em JS puro, e
+por isso tem um orçamento de tamanho (`limite_index_mb`, testado em CI).
+
+`data/catalog.jsonl` é o dado completo e é ele — não o index — que a ficha do
+filme (seção 7.3) lê para pôster, sinopse, diretor, elenco e keywords. O site
+busca esse arquivo também, mas só a linha do filme aberto, nunca o arquivo
+inteiro para renderizar a grade.
+
+**Por que não colocar pôster e sinopse no index.json.** Uma sinopse média tem
+uns 300 caracteres; multiplicado por 40 mil filmes, isso sozinho já se
+aproxima do orçamento de `limite_index_mb` — e cresceria em cada filme novo,
+mesmo que a grade e o ranking nunca usem esse texto. Manter esses campos fora
+do index e só no `catalog.jsonl` é o que permite ao arquivo de navegação ficar
+pequeno o bastante pra carregar inteiro, sem cortar nenhum dado da ficha do
+filme.
 
 ## 5. Pipeline de sync
 
