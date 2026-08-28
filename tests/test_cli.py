@@ -1,5 +1,6 @@
 import gzip
 import json
+import tempfile
 from datetime import date, timedelta
 from pathlib import Path
 
@@ -372,3 +373,231 @@ async def test_nada_e_publicado_se_uma_etapa_falhar(tmp_path):
     assert (
         raiz / "data" / "catalog.jsonl"
     ).read_text(encoding="utf-8") == conteudo_catalogo_antes
+
+
+# ---------------------------------------------------------------------------
+# Fix round 1 — CRÍTICO 1: publicar_atomico por rename-aside, com autocura.
+# ---------------------------------------------------------------------------
+
+
+def test_publicar_atomico_autocura_apos_travar_entre_backup_e_troca(tmp_path):
+    site = tmp_path / "site"
+    site.mkdir()
+
+    # Uma rodada anterior travou depois de mover o destino para o backup,
+    # mas antes de mover o novo conteúdo para o lugar: o backup existe, o
+    # destino não.
+    backup = site / ".data-anterior"
+    backup.mkdir()
+    (backup / "antigo.json").write_text("velho", encoding="utf-8")
+
+    definitivo = site / "data"
+    assert not definitivo.exists()
+
+    temporario = tmp_path / "tmp"
+    temporario.mkdir()
+    (temporario / "index.json").write_text("novo", encoding="utf-8")
+
+    publicar_atomico(temporario, definitivo)
+
+    # A rodada travada se autocurou e a publicação desta rodada completou
+    # normalmente: nada explodiu por o destino ter sumido, e o backup foi
+    # descartado depois de servir para a autocura.
+    assert (definitivo / "index.json").read_text(encoding="utf-8") == "novo"
+    assert not backup.exists()
+
+
+def test_publicar_atomico_autocura_com_backup_e_destino_presentes(tmp_path):
+    # Uma rodada anterior travou depois do último passo (destino já
+    # trocado, backup ainda não removido): as duas pastas coexistem.
+    site = tmp_path / "site"
+    site.mkdir()
+
+    backup = site / ".data-anterior"
+    backup.mkdir()
+    (backup / "antigo.json").write_text("bem_velho", encoding="utf-8")
+
+    definitivo = site / "data"
+    definitivo.mkdir()
+    (definitivo / "index.json").write_text("velho", encoding="utf-8")
+
+    temporario = tmp_path / "tmp"
+    temporario.mkdir()
+    (temporario / "index.json").write_text("novo", encoding="utf-8")
+
+    publicar_atomico(temporario, definitivo)
+
+    assert (definitivo / "index.json").read_text(encoding="utf-8") == "novo"
+    assert not backup.exists()
+
+
+# ---------------------------------------------------------------------------
+# Fix round 1 — CRÍTICO 2: catálogo escrito por arquivo temporário +
+# os.replace, sem nenhuma etapa arriscada entre as duas publicações.
+# ---------------------------------------------------------------------------
+
+
+@respx.mock
+async def test_falha_ao_escrever_o_catalogo_temporario_preserva_o_arquivo_original(
+    tmp_path, monkeypatch
+):
+    hoje = date(2026, 8, 27)
+    _mock_exports_sem_novidade(hoje)
+
+    catalogo_inicial = [_filme(1, track="acervo", added="2020-01-01")]
+    raiz = _preparar_raiz(tmp_path, catalogo=catalogo_inicial, perfil={"movies": {}})
+
+    destino_site = raiz / "site" / "data"
+    destino_site.mkdir(parents=True)
+    (destino_site / "antigo.json").write_text("velho", encoding="utf-8")
+
+    conteudo_catalogo_antes = (raiz / "data" / "catalog.jsonl").read_text(
+        encoding="utf-8"
+    )
+
+    def _explode(*_args, **_kwargs):
+        raise RuntimeError("falha simulada ao gravar o catálogo")
+
+    monkeypatch.setattr("sync.cli.escrever_catalogo", _explode)
+
+    diretorios_temp_antes = set(Path(tempfile.gettempdir()).glob("fdf-*"))
+
+    with pytest.raises(RuntimeError):
+        await executar(raiz=raiz, token="tok", hoje=hoje, carga_inicial=False)
+
+    # O catálogo definitivo não foi tocado: a escrita falhou no arquivo
+    # temporário, antes do os.replace.
+    assert (
+        raiz / "data" / "catalog.jsonl"
+    ).read_text(encoding="utf-8") == conteudo_catalogo_antes
+    # O site também não foi publicado — a falha aconteceu antes do
+    # publicar_atomico.
+    assert (destino_site / "antigo.json").read_text(encoding="utf-8") == "velho"
+    assert not (destino_site / "index.json").exists()
+    # IMPORTANTE 5: nenhum diretório temporário ficou órfão.
+    diretorios_temp_depois = set(Path(tempfile.gettempdir()).glob("fdf-*"))
+    assert diretorios_temp_depois == diretorios_temp_antes
+
+
+# ---------------------------------------------------------------------------
+# Fix round 1 — IMPORTANTE 3: um filme removido do TMDB (404/410) sai do
+# catálogo sem derrubar a rodada; qualquer outro erro continua abortando.
+# ---------------------------------------------------------------------------
+
+
+@respx.mock
+async def test_filme_removido_do_tmdb_sai_do_catalogo_e_a_rodada_publica(tmp_path):
+    hoje = date(2026, 8, 27)
+    _mock_exports_sem_novidade(hoje)
+
+    catalogo_inicial = [
+        _filme(555, track="recente", added="2025-01-01", vote_count=10),
+        _filme(1, track="acervo", added="2020-01-01"),
+    ]
+    perfil = {
+        "movies": {"555": {"seen": True, "rating": 1, "want": False, "at": ""}}
+    }
+    raiz = _preparar_raiz(tmp_path, catalogo=catalogo_inicial, perfil=perfil)
+
+    conteudo_perfil_antes = (raiz / "data" / "profile.json").read_text(
+        encoding="utf-8"
+    )
+
+    respx.get("https://api.themoviedb.org/3/movie/555").mock(
+        return_value=httpx.Response(404, json={"status_message": "not found"})
+    )
+
+    await executar(raiz=raiz, token="tok", hoje=hoje, carga_inicial=False)
+
+    catalogo_final = ler_catalogo(raiz / "data" / "catalog.jsonl")
+    assert 555 not in catalogo_final
+    assert 1 in catalogo_final
+
+    # O registro em profile.json não é tocado — vira um órfão, mas
+    # continua lá, como o spec exige.
+    assert (
+        raiz / "data" / "profile.json"
+    ).read_text(encoding="utf-8") == conteudo_perfil_antes
+
+    # A rodada publicou normalmente apesar do 404.
+    assert (raiz / "site" / "data" / "index.json").exists()
+
+
+@respx.mock
+async def test_erro_503_em_um_id_ainda_aborta_a_rodada_inteira(tmp_path, monkeypatch):
+    async def _sem_espera(*_args, **_kwargs):
+        return None
+
+    # Só remove a espera do backoff — o comportamento de retry e a decisão
+    # de propagar continuam sendo os de verdade do TMDBClient.
+    monkeypatch.setattr("sync.tmdb.asyncio.sleep", _sem_espera)
+
+    hoje = date(2026, 8, 27)
+    _mock_exports_sem_novidade(hoje)
+
+    catalogo_inicial = [
+        _filme(555, track="recente", added="2025-01-01", vote_count=10)
+    ]
+    raiz = _preparar_raiz(tmp_path, catalogo=catalogo_inicial, perfil={"movies": {}})
+
+    destino_site = raiz / "site" / "data"
+    destino_site.mkdir(parents=True)
+    (destino_site / "antigo.json").write_text("velho", encoding="utf-8")
+
+    respx.get("https://api.themoviedb.org/3/movie/555").mock(
+        return_value=httpx.Response(503)
+    )
+
+    with pytest.raises(TMDBError):
+        await executar(raiz=raiz, token="tok", hoje=hoje, carga_inicial=False)
+
+    assert (destino_site / "antigo.json").read_text(encoding="utf-8") == "velho"
+    assert not (destino_site / "index.json").exists()
+
+
+# ---------------------------------------------------------------------------
+# Fix round 1 — IMPORTANTE 4: nomes de diretor/elenco persistem entre
+# rodadas em data/nomes.json, mesclando em vez de substituir.
+# ---------------------------------------------------------------------------
+
+
+@respx.mock
+async def test_nomes_persistidos_sao_mesclados_entre_execucoes(tmp_path):
+    hoje = date(2026, 8, 27)
+    _mock_exports_sem_novidade(hoje)
+
+    raiz = _preparar_raiz(
+        tmp_path,
+        catalogo=[
+            _filme(1, track="acervo", added="2020-01-01"),
+            _filme(555, track="recente", added="2026-01-01", vote_count=10),
+        ],
+        perfil={"movies": {}},
+    )
+
+    # Nome aprendido numa rodada anterior, de um filme que não será
+    # reprocessado nesta rodada (é "acervo").
+    (raiz / "data" / "nomes.json").write_text(
+        json.dumps({"director": {"900": "Diretor Antigo"}, "cast": {}}),
+        encoding="utf-8",
+    )
+
+    detalhe_555 = _detalhe(555, vote_count=12, release_date="2026-06-01")
+    detalhe_555["credits"] = {
+        "crew": [{"id": 42, "job": "Director", "name": "Diretor Novo"}],
+        "cast": [],
+    }
+    respx.get("https://api.themoviedb.org/3/movie/555").mock(
+        return_value=httpx.Response(200, json=detalhe_555)
+    )
+
+    await executar(raiz=raiz, token="tok", hoje=hoje, carga_inicial=False)
+
+    nomes_final = json.loads(
+        (raiz / "data" / "nomes.json").read_text(encoding="utf-8")
+    )
+    # O nome antigo sobreviveu — a rodada não refez o filme 1 e mesmo assim
+    # não apagou o que já sabia sobre ele.
+    assert nomes_final["director"]["900"] == "Diretor Antigo"
+    # O nome novo, aprendido nesta rodada, entrou.
+    assert nomes_final["director"]["42"] == "Diretor Novo"

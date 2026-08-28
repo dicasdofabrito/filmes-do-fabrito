@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import asyncio
 import json
+import logging
 import os
 import shutil
 import sys
@@ -25,17 +26,44 @@ from sync.shelves import Contexto, montar_fileiras
 from sync.theatrical import apenas_no_cinema
 from sync.tmdb import TMDBClient
 
+logger = logging.getLogger(__name__)
+
 
 def publicar_atomico(temporario: Path, definitivo: Path) -> None:
-    """Troca o conteúdo do destino de uma vez.
+    """Troca o conteúdo do destino por rename-aside, sem nunca deixar o
+    destino inexistente entre um passo e outro.
 
-    Um catálogo pela metade é pior que um catálogo de ontem, então a
-    publicação só acontece depois que tudo foi gerado com sucesso.
+    rmtree seguido de move não é atômico: um crash entre os dois deixa o
+    site sem catálogo nenhum — pior que servir o de ontem, que é
+    exatamente o que essa função existe para evitar. Em vez disso, o
+    conteúdo atual é movido para um backup ao lado, o novo conteúdo é
+    movido para o lugar, e só então o backup é descartado. Cada passo é uma
+    renomeação: um crash a qualquer momento deixa o destino antigo ou o
+    novo no lugar — nunca nada.
+
+    Se a rodada anterior travou entre mover o destino para o backup e mover
+    o novo conteúdo para o lugar, o backup ainda está lá e o destino não
+    existe — o primeiro passo desta chamada restaura o backup antes de
+    seguir, para a rodada travada se autocurar em vez de ficar quebrada.
     """
+    backup = definitivo.parent / f".{definitivo.name}-anterior"
     definitivo.parent.mkdir(parents=True, exist_ok=True)
+
+    if backup.exists() and not definitivo.exists():
+        shutil.move(str(backup), str(definitivo))
+
+    if backup.exists():
+        # Sobra de uma rodada anterior que travou depois do último passo;
+        # descartável, pois o destino já está correto.
+        shutil.rmtree(backup)
+
     if definitivo.exists():
-        shutil.rmtree(definitivo)
+        shutil.move(str(definitivo), str(backup))
+
     shutil.move(str(temporario), str(definitivo))
+
+    if backup.exists():
+        shutil.rmtree(backup)
 
 
 async def _ids_carga_inicial(
@@ -95,6 +123,42 @@ async def _ids_para_processar(
     return ids_novos(export_hoje, ontem)
 
 
+def _carregar_nomes(raiz: Path) -> dict[str, dict[int, str]]:
+    """Nomes de diretores e elenco aprendidos em rodadas anteriores.
+
+    Um filme só tem seus detalhes buscados de novo quando entra no
+    catálogo ou enquanto está na trilha "recente" — uma vez virado
+    "acervo", nunca mais é refeito. Sem persistir os nomes, as fileiras
+    "Mais de" e "Com" acabariam mostrando o id numérico da pessoa em vez do
+    nome assim que o filme que a trouxe parasse de ser reprocessado.
+    """
+    caminho = raiz / "data" / "nomes.json"
+    if not caminho.exists():
+        return {"director": {}, "cast": {}}
+
+    bruto = json.loads(caminho.read_text(encoding="utf-8"))
+    return {
+        "director": {int(k): v for k, v in (bruto.get("director") or {}).items()},
+        "cast": {int(k): v for k, v in (bruto.get("cast") or {}).items()},
+    }
+
+
+def _escrever_nomes(raiz: Path, nomes: dict[str, dict[int, str]]) -> None:
+    """Grava os nomes acumulados. Nunca remove entradas — um nome correto
+    uma vez continua correto, mesmo que o filme que o trouxe suma do que é
+    reprocessado nesta rodada."""
+    caminho = raiz / "data" / "nomes.json"
+    caminho.parent.mkdir(parents=True, exist_ok=True)
+    serializavel = {
+        tipo: {str(id_): nome for id_, nome in pessoas.items()}
+        for tipo, pessoas in nomes.items()
+    }
+    caminho.write_text(
+        json.dumps(serializavel, ensure_ascii=False, sort_keys=True),
+        encoding="utf-8",
+    )
+
+
 async def executar(
     *, raiz: Path, token: str, hoje: date, carga_inicial: bool
 ) -> None:
@@ -102,6 +166,7 @@ async def executar(
     catalogo = ler_catalogo(raiz / "data" / "catalog.jsonl")
     perfil = ler_perfil(raiz / "data" / "profile.json")
     protegidos = set(perfil.movies)
+    nomes = _carregar_nomes(raiz)
 
     async with TMDBClient(token) as cliente:
         alvos = await _ids_para_processar(
@@ -115,9 +180,17 @@ async def executar(
             i for i, f in catalogo.items() if f.track == RECENTE
         }
         ids_para_buscar = novos | recentes_existentes
-        detalhes = await buscar_detalhes(cliente, ids_para_buscar)
+        detalhes, removidos = await buscar_detalhes(cliente, ids_para_buscar)
 
-    nomes: dict[str, dict[int, str]] = {"director": {}, "cast": {}}
+    if removidos:
+        logger.warning(
+            "removidos do catálogo por não existirem mais no TMDB (404/410): %s",
+            sorted(removidos),
+        )
+    for id_removido in removidos:
+        # Sai do catálogo, mas o registro em profile.json não é tocado — o
+        # histórico do Fabio vira um "órfão", como o spec pede.
+        catalogo.pop(id_removido, None)
 
     for detalhe in detalhes:
         id_ = detalhe["id"]
@@ -151,6 +224,8 @@ async def executar(
         for pessoa in (creditos.get("cast") or [])[:5]:
             nomes["cast"][pessoa["id"]] = pessoa.get("name", "")
 
+    _escrever_nomes(raiz, nomes)
+
     gosto = construir_gosto(perfil, catalogo, k=cfg.motor.suavizacao_k)
     pontuacao = pontuar(catalogo, gosto, cfg.motor)
 
@@ -162,10 +237,29 @@ async def executar(
         )
     )
 
-    temporario = Path(tempfile.mkdtemp(prefix="fdf-"))
-    escrever_site_data(temporario, catalogo, pontuacao, fileiras, cfg.build)
-    escrever_catalogo(raiz / "data" / "catalog.jsonl", catalogo.values())
-    publicar_atomico(temporario, raiz / "site" / "data")
+    temporario_site = Path(tempfile.mkdtemp(prefix="fdf-"))
+    caminho_catalogo = raiz / "data" / "catalog.jsonl"
+    temporario_catalogo = caminho_catalogo.with_name(caminho_catalogo.name + ".tmp")
+    try:
+        escrever_site_data(temporario_site, catalogo, pontuacao, fileiras, cfg.build)
+        # Grava o catálogo por um arquivo temporário ao lado do definitivo;
+        # escrever_catalogo continua fazendo a serialização, só não é mais
+        # ela quem decide o caminho final.
+        escrever_catalogo(temporario_catalogo, catalogo.values())
+
+        # Daqui pra frente nada mais pode falhar: as duas publicações ficam
+        # lado a lado, sem nenhum passo arriscado entre elas. os.replace é
+        # uma renomeação atômica tanto no Windows quanto no POSIX.
+        os.replace(temporario_catalogo, caminho_catalogo)
+        publicar_atomico(temporario_site, raiz / "site" / "data")
+    finally:
+        # Um diretório temporário órfão a cada falha, num job diário
+        # agendado, vira lixo acumulado sem limite — limpo em todo caminho,
+        # sucesso ou falha.
+        if temporario_site.exists():
+            shutil.rmtree(temporario_site, ignore_errors=True)
+        if temporario_catalogo.exists():
+            temporario_catalogo.unlink(missing_ok=True)
 
 
 def main() -> None:
