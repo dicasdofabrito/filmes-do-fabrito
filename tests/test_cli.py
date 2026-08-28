@@ -1,5 +1,6 @@
 import gzip
 import json
+import logging
 import tempfile
 from datetime import date, timedelta
 from pathlib import Path
@@ -71,6 +72,7 @@ def _filme(
     added: str,
     vote_count: int = 10,
     title: str = "Antigo",
+    theatrical: bool = False,
 ) -> Movie:
     return Movie(
         id=id_,
@@ -85,7 +87,7 @@ def _filme(
         cast=(),
         language="en",
         track=track,
-        theatrical=False,
+        theatrical=theatrical,
         added=added,
     )
 
@@ -293,6 +295,56 @@ async def test_refresh_com_votos_suficientes_gradua_para_acervo(tmp_path):
 
 
 @respx.mock
+async def test_acervo_theatrical_e_reprocessado_e_perde_a_flag_ao_sair_em_casa(
+    tmp_path,
+):
+    """Correção B1: um filme admitido como "acervo" com `theatrical=True`
+    (lançamento amplo que já passou de 50 votos em poucos dias) não pode
+    congelar na fileira "Nos cinemas" para sempre — precisa continuar sendo
+    reprocessado até o lançamento digital aparecer em `release_dates`."""
+    hoje = date(2026, 8, 27)
+    _mock_exports_sem_novidade(hoje)
+
+    catalogo_inicial = [
+        _filme(
+            555,
+            track="acervo",
+            added="2026-08-01",
+            vote_count=200,
+            theatrical=True,
+        )
+    ]
+    raiz = _preparar_raiz(tmp_path, catalogo=catalogo_inicial, perfil={"movies": {}})
+
+    detalhe = _detalhe(555, vote_count=200, release_date="2026-08-01")
+    detalhe["release_dates"] = {
+        "results": [
+            {
+                "iso_3166_1": "BR",
+                "release_dates": [
+                    {"type": 3, "release_date": "2026-08-01T00:00:00.000Z"},
+                    {"type": 4, "release_date": "2026-08-20T00:00:00.000Z"},
+                ],
+            }
+        ]
+    }
+    rota_detalhe = respx.get("https://api.themoviedb.org/3/movie/555").mock(
+        return_value=httpx.Response(200, json=detalhe)
+    )
+
+    await executar(raiz=raiz, token="tok", hoje=hoje, carga_inicial=False)
+
+    assert rota_detalhe.called, (
+        "filme 'acervo' com theatrical=True deveria ser reprocessado, não "
+        "só filmes da trilha 'recente'"
+    )
+
+    catalogo_final = ler_catalogo(raiz / "data" / "catalog.jsonl")
+    assert catalogo_final[555].track == "acervo"
+    assert catalogo_final[555].theatrical is False
+
+
+@respx.mock
 async def test_refresh_rejeitado_e_removido_mas_protegido_permanece(tmp_path):
     hoje = date(2026, 8, 27)
     _mock_exports_sem_novidade(hoje)
@@ -369,10 +421,16 @@ async def test_nada_e_publicado_se_uma_etapa_falhar(tmp_path):
     assert not (destino_site / "index.json").exists()
     assert sorted(p.name for p in destino_site.iterdir()) == ["antigo.json"]
 
-    # O catálogo em disco também não foi tocado.
+    # O catálogo em disco também não foi tocado (o conteúdo é idêntico ao
+    # que já estava, então a reescrita não muda o texto).
     assert (
         raiz / "data" / "catalog.jsonl"
     ).read_text(encoding="utf-8") == conteudo_catalogo_antes
+
+    # B7: nenhum diretório temporário "fdf-*" ficou órfão dentro de `raiz`
+    # (mkdtemp usa dir=raiz para garantir mesmo sistema de arquivos do
+    # destino — ver publicar_atomico).
+    assert list(raiz.glob("fdf-*")) == []
 
 
 # ---------------------------------------------------------------------------
@@ -474,6 +532,11 @@ async def test_falha_ao_escrever_o_catalogo_temporario_preserva_o_arquivo_origin
     # publicar_atomico.
     assert (destino_site / "antigo.json").read_text(encoding="utf-8") == "velho"
     assert not (destino_site / "index.json").exists()
+    # B2: nomes.json e tmdb_ids_ontem.json.gz também ficam intocados — eles
+    # entram na mesma seção atômica do catálogo, depois do os.replace que
+    # nunca chegou a acontecer.
+    assert not (raiz / "data" / "nomes.json").exists()
+    assert not (raiz / "data" / "tmdb_ids_ontem.json.gz").exists()
     # IMPORTANTE 5: nenhum diretório temporário ficou órfão.
     diretorios_temp_depois = set(Path(tempfile.gettempdir()).glob("fdf-*"))
     assert diretorios_temp_depois == diretorios_temp_antes
@@ -601,3 +664,78 @@ async def test_nomes_persistidos_sao_mesclados_entre_execucoes(tmp_path):
     assert nomes_final["director"]["900"] == "Diretor Antigo"
     # O nome novo, aprendido nesta rodada, entrou.
     assert nomes_final["director"]["42"] == "Diretor Novo"
+
+
+# ---------------------------------------------------------------------------
+# Fix wave final — B4: tmdb_ids_ontem.json.gz é gravado comprimido, com o
+# nome exato do spec.
+# ---------------------------------------------------------------------------
+
+
+@respx.mock
+async def test_ids_ontem_e_gravado_comprimido_com_o_nome_do_spec(tmp_path):
+    hoje = date(2026, 8, 27)
+
+    export_hoje = gzip.compress(
+        b"\n".join(json.dumps({"id": i}).encode() for i in (1, 2, 3))
+    )
+    export_ontem = gzip.compress(
+        b"\n".join(json.dumps({"id": i}).encode() for i in (1, 2))
+    )
+    respx.get(url_export(hoje)).mock(
+        return_value=httpx.Response(200, content=export_hoje)
+    )
+    respx.get(url_export(hoje - timedelta(days=1))).mock(
+        return_value=httpx.Response(200, content=export_ontem)
+    )
+
+    raiz = _preparar_raiz(tmp_path, perfil={"movies": {}})
+
+    respx.get("https://api.themoviedb.org/3/movie/3").mock(
+        return_value=httpx.Response(
+            200, json=_detalhe(3, vote_count=0, popularity=0.0)
+        )
+    )
+
+    await executar(raiz=raiz, token="tok", hoje=hoje, carga_inicial=False)
+
+    caminho = raiz / "data" / "tmdb_ids_ontem.json.gz"
+    assert caminho.exists()
+    assert not (raiz / "data" / "tmdb_ids_ontem.json").exists()
+
+    with gzip.open(caminho, "rt", encoding="utf-8") as arquivo:
+        assert json.load(arquivo) == [1, 2, 3]
+
+
+# ---------------------------------------------------------------------------
+# Fix wave final — B5: vibes.json ausente degrada, não derruba o build.
+# ---------------------------------------------------------------------------
+
+
+@respx.mock
+async def test_vibes_ausente_nao_derruba_o_build(tmp_path, caplog):
+    hoje = date(2026, 8, 27)
+    _mock_exports_sem_novidade(hoje)
+
+    config_so_vibe = {**CONFIG_BASE, "fileiras": ["vibe"]}
+    catalogo_inicial = [_filme(1, track="acervo", added="2020-01-01")]
+    raiz = _preparar_raiz(
+        tmp_path,
+        catalogo=catalogo_inicial,
+        perfil={"movies": {}},
+        config=config_so_vibe,
+    )
+    # _preparar_raiz sempre cria vibes.json — removido de propósito para
+    # simular a ausência do arquivo.
+    (raiz / "data" / "vibes.json").unlink()
+
+    with caplog.at_level(logging.WARNING, logger="sync.cli"):
+        await executar(raiz=raiz, token="tok", hoje=hoje, carga_inicial=False)
+
+    assert "vibes.json ausente" in caplog.text
+
+    dados = json.loads(
+        (raiz / "site" / "data" / "shelves.json").read_text(encoding="utf-8")
+    )
+    # A fileira "vibe" simplesmente não aparece — o build não é abortado.
+    assert dados["shelves"] == []

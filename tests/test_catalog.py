@@ -47,6 +47,14 @@ def test_leitura_de_arquivo_inexistente_devolve_vazio(tmp_path: Path):
     assert ler_catalogo(tmp_path / "nao_existe.jsonl") == {}
 
 
+def test_from_row_tolera_added_ausente():
+    """B9: um catalog.jsonl gravado antes do campo `a` existir não pode
+    ficar ilegível — degrada para string vazia."""
+    linha = _filme().to_row()
+    del linha["a"]
+    assert Movie.from_row(linha).added == ""
+
+
 def test_montar_filme_extrai_diretor_e_elenco_do_credits():
     detalhe = {
         "id": 603,

@@ -61,7 +61,16 @@ def pontuar(catalogo: dict[int, Movie], gosto: Taste, cfg: Motor) -> Scoring:
     if not catalogo:
         return Scoring(scores={}, affinities={}, qualities={})
 
-    media_global = sum(f.vote_average for f in catalogo.values()) / len(catalogo)
+    # Só filmes com voto registrado entram na média global. Filmes "recente"
+    # admitidos por popularidade têm `vote_average = 0.0` — incluí-los
+    # puxaria a âncora bayesiana pra baixo e penalizaria sistematicamente
+    # todo filme de poucos votos, o oposto do que `qualidade_bayesiana`
+    # existe para fazer.
+    com_votos = [f.vote_average for f in catalogo.values() if f.vote_count > 0]
+    if com_votos:
+        media_global = sum(com_votos) / len(com_votos)
+    else:
+        media_global = sum(f.vote_average for f in catalogo.values()) / len(catalogo)
 
     qualidades = {
         id_: qualidade_bayesiana(

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+import gzip
 import json
 import logging
 import os
@@ -112,20 +113,46 @@ async def _ids_para_processar(
     hoje: date,
     carga_inicial: bool,
     cfg_admissao: Admissao,
-) -> set[int]:
+) -> tuple[set[int], set[int] | None]:
+    """Devolve os ids a processar e, fora da carga inicial, o export de hoje
+    — para o chamador persistir como baseline do diff de amanhã.
+
+    A escrita de `tmdb_ids_ontem.json.gz` NÃO acontece aqui: fica a cargo de
+    `executar`, dentro da seção atômica, junto com o catálogo. Escrevê-la
+    aqui, antes de qualquer busca de detalhes, deixaria a baseline do diff
+    apontando pra hoje mesmo que a rodada falhasse depois e o catálogo não
+    fosse atualizado — a próxima rodada compararia contra a base errada e
+    perderia os filmes novos daquele dia pra sempre (ver B2 no fix wave).
+    """
     if carga_inicial:
-        return await _ids_carga_inicial(cliente, hoje, cfg_admissao)
+        return await _ids_carga_inicial(cliente, hoje, cfg_admissao), None
 
     export_hoje = await baixar_export(hoje)
-    caminho_ontem = raiz / "data" / "tmdb_ids_ontem.json"
+    caminho_ontem = raiz / "data" / "tmdb_ids_ontem.json.gz"
     if caminho_ontem.exists():
-        ontem = set(json.loads(caminho_ontem.read_text(encoding="utf-8")))
+        with gzip.open(caminho_ontem, "rt", encoding="utf-8") as arquivo:
+            ontem = set(json.load(arquivo))
     else:
         ontem = await baixar_export(hoje - timedelta(days=1))
 
-    caminho_ontem.parent.mkdir(parents=True, exist_ok=True)
-    caminho_ontem.write_text(json.dumps(sorted(export_hoje)), encoding="utf-8")
-    return ids_novos(export_hoje, ontem)
+    return ids_novos(export_hoje, ontem), export_hoje
+
+
+def _escrever_ids_ontem(raiz: Path, ids: set[int]) -> None:
+    """Grava o export de hoje, comprimido, para servir de baseline do diff
+    de amanhã — nome e formato conforme o spec (`tmdb_ids_ontem.json.gz`).
+
+    O arquivo carrega ~900 mil ids e é reescrito todo dia; sem gzip seriam
+    uns 6 MB de churn diário, no repositório cujo desenho inteiro existe
+    pra manter os deltas pequenos. Temp-file + os.replace: uma escrita
+    torta aqui deixaria a próxima rodada comparando contra um .gz quebrado.
+    """
+    caminho = raiz / "data" / "tmdb_ids_ontem.json.gz"
+    caminho.parent.mkdir(parents=True, exist_ok=True)
+    temporario = caminho.with_name(caminho.name + ".tmp")
+    with gzip.open(temporario, "wt", encoding="utf-8") as arquivo:
+        json.dump(sorted(ids), arquivo)
+    os.replace(temporario, caminho)
 
 
 def _carregar_nomes(raiz: Path) -> dict[str, dict[int, str]]:
@@ -151,17 +178,40 @@ def _carregar_nomes(raiz: Path) -> dict[str, dict[int, str]]:
 def _escrever_nomes(raiz: Path, nomes: dict[str, dict[int, str]]) -> None:
     """Grava os nomes acumulados. Nunca remove entradas — um nome correto
     uma vez continua correto, mesmo que o filme que o trouxe suma do que é
-    reprocessado nesta rodada."""
+    reprocessado nesta rodada.
+
+    Temp-file + os.replace, o mesmo padrão do catálogo: uma escrita torta
+    aqui deixaria `data/nomes.json` corrompido, e como `_carregar_nomes` faz
+    um `json.loads` sem guarda logo no início de `executar`, toda rodada
+    seguinte morreria na primeira linha, sem nenhum caminho de autocura.
+    """
     caminho = raiz / "data" / "nomes.json"
     caminho.parent.mkdir(parents=True, exist_ok=True)
     serializavel = {
         tipo: {str(id_): nome for id_, nome in pessoas.items()}
         for tipo, pessoas in nomes.items()
     }
-    caminho.write_text(
+    temporario = caminho.with_name(caminho.name + ".tmp")
+    temporario.write_text(
         json.dumps(serializavel, ensure_ascii=False, sort_keys=True),
         encoding="utf-8",
     )
+    os.replace(temporario, caminho)
+
+
+def _carregar_vibes(raiz: Path) -> dict[str, list[int]]:
+    """Dicionário vibe → keywords para a fileira "Hoje a vibe é". Ausente
+    não é fatal — como `ler_catalogo`, `ler_perfil` e `_carregar_nomes`,
+    degrada para vazio e a rodada segue, só sem essa fileira, em vez de
+    derrubar o build inteiro depois de todo o trabalho de rede já feito.
+    """
+    caminho = raiz / "data" / "vibes.json"
+    if not caminho.exists():
+        logger.warning(
+            "data/vibes.json ausente — a fileira 'vibe' fica ausente nesta rodada"
+        )
+        return {}
+    return json.loads(caminho.read_text(encoding="utf-8"))
 
 
 async def executar(
@@ -179,15 +229,22 @@ async def executar(
     # que algum id tropece nisso. Os defaults da classe continuam os de
     # sempre; só a chamada do pipeline pede mais paciência.
     async with TMDBClient(token, max_retries=8, backoff_base=1.0) as cliente:
-        alvos = await _ids_para_processar(
+        alvos, export_hoje = await _ids_para_processar(
             cliente, raiz, hoje, carga_inicial, cfg.admissao
         )
         novos = {i for i in alvos if i not in catalogo}
         # Todo filme já na trilha "recente" é reprocessado a cada rodada:
         # sem isso, `vote_count` e `theatrical` congelam no valor do dia da
-        # admissão e a graduação para "acervo" nunca acontece.
+        # admissão e a graduação para "acervo" nunca acontece. Um filme
+        # "acervo" com `theatrical=True` também precisa entrar aqui: um
+        # lançamento amplo passa de 50 votos em poucos dias e é admitido
+        # como acervo antes mesmo de `classificar` olhar pra janela de
+        # lançamento — sem reprocessar, ele fica preso na fileira "Nos
+        # cinemas" para sempre, mesmo depois do lançamento digital sair.
         recentes_existentes = {
-            i for i, f in catalogo.items() if f.track == RECENTE
+            i
+            for i, f in catalogo.items()
+            if f.track == RECENTE or f.theatrical
         }
         ids_para_buscar = novos | recentes_existentes
         detalhes, removidos = await buscar_detalhes(cliente, ids_para_buscar)
@@ -234,12 +291,10 @@ async def executar(
         for pessoa in (creditos.get("cast") or [])[:5]:
             nomes["cast"][pessoa["id"]] = pessoa.get("name", "")
 
-    _escrever_nomes(raiz, nomes)
-
     gosto = construir_gosto(perfil, catalogo, k=cfg.motor.suavizacao_k)
     pontuacao = pontuar(catalogo, gosto, cfg.motor)
 
-    vibes = json.loads((raiz / "data" / "vibes.json").read_text(encoding="utf-8"))
+    vibes = _carregar_vibes(raiz)
     fileiras = montar_fileiras(
         Contexto(
             catalogo=catalogo, perfil=perfil, pontuacao=pontuacao, gosto=gosto,
@@ -247,9 +302,9 @@ async def executar(
         )
     )
 
-    temporario_site = Path(tempfile.mkdtemp(prefix="fdf-"))
     caminho_catalogo = raiz / "data" / "catalog.jsonl"
     temporario_catalogo = caminho_catalogo.with_name(caminho_catalogo.name + ".tmp")
+    temporario_site: Path | None = None
     try:
         # O catálogo é publicado PRIMEIRO, antes do site. Ele é o artefato
         # caro — até 40 minutos de chamadas ao TMDB numa carga inicial — e a
@@ -269,6 +324,25 @@ async def executar(
         escrever_catalogo(temporario_catalogo, catalogo.values())
         os.replace(temporario_catalogo, caminho_catalogo)
 
+        # data/nomes.json e data/tmdb_ids_ontem.json.gz entram na mesma
+        # seção "nada mais pode falhar de forma perigosa" do catálogo — os
+        # três, cada um por temp-file + os.replace. Escrevê-los antes desse
+        # ponto (como o código fazia) deixava um estado inconsistente
+        # possível: uma rodada que falhasse depois avançaria a baseline do
+        # diff ou os nomes aprendidos sem o catálogo em disco refletir isso,
+        # e a rodada seguinte compararia contra a base errada.
+        _escrever_nomes(raiz, nomes)
+        if export_hoje is not None:
+            _escrever_ids_ontem(raiz, export_hoje)
+
+        # dir=raiz: o diretório temporário do site precisa estar no mesmo
+        # sistema de arquivos que o destino (raiz/site/data). Sem isso,
+        # `tempfile.mkdtemp` cairia no temp global do SO — que pode estar em
+        # outro volume — e o `shutil.move` dentro de `publicar_atomico`
+        # degradaria de rename para copy+delete, anulando a garantia de
+        # atomicidade que essa função existe pra dar.
+        temporario_site = Path(tempfile.mkdtemp(prefix="fdf-", dir=raiz))
+
         # Só agora o site é construído e publicado — derivado do catálogo
         # que acabou de ser gravado, já em segurança em disco.
         escrever_site_data(temporario_site, catalogo, pontuacao, fileiras, cfg.build)
@@ -277,7 +351,7 @@ async def executar(
         # Um diretório temporário órfão a cada falha, num job diário
         # agendado, vira lixo acumulado sem limite — limpo em todo caminho,
         # sucesso ou falha.
-        if temporario_site.exists():
+        if temporario_site is not None and temporario_site.exists():
             shutil.rmtree(temporario_site, ignore_errors=True)
         if temporario_catalogo.exists():
             temporario_catalogo.unlink(missing_ok=True)

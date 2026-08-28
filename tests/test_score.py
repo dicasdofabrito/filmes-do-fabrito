@@ -1,3 +1,5 @@
+import pytest
+
 from sync.catalog import Movie
 from sync.config import Motor
 from sync.profile import Taste
@@ -145,3 +147,35 @@ def test_catalogo_um_filme_nao_quebra_com_perfil_maduro():
     # Não deve quebrar
     assert resultado.scores[1] == resultado.qualities[1]
     assert 0.0 <= resultado.scores[1] <= 1.0
+
+
+def test_media_global_ignora_filmes_sem_voto():
+    """B6: filmes "recente" admitidos só por popularidade têm
+    `vote_average = 0.0` e `vote_count = 0` — não podem enviesar a âncora
+    bayesiana pra baixo e penalizar sistematicamente os filmes de poucos
+    votos."""
+    catalogo = {
+        1: _filme(1, media=8.0, votos=1000),
+        2: _filme(2, media=0.0, votos=0),
+        3: _filme(3, media=0.0, votos=0),
+    }
+    gosto = Taste(weights={}, n_ratings=3)  # abaixo de min_avaliacoes: qualidade pura
+
+    resultado = pontuar(catalogo, gosto, _motor())
+
+    # media_global correta é 8.0 (só o filme 1 tem voto), não a média dos
+    # três contando os dois com vote_average=0.0, que daria 2.667.
+    esperado = qualidade_bayesiana(8.0, 1000, m=500, media_global=8.0) / 10.0
+    assert resultado.qualities[1] == pytest.approx(esperado)
+
+
+def test_media_global_cai_para_o_catalogo_inteiro_se_ninguem_tem_voto():
+    catalogo = {1: _filme(1, media=0.0, votos=0), 2: _filme(2, media=0.0, votos=0)}
+    gosto = Taste(weights={}, n_ratings=3)
+
+    resultado = pontuar(catalogo, gosto, _motor())
+
+    # Sem nenhum filme com voto, cai para o comportamento anterior (média
+    # sobre o catálogo inteiro) em vez de dividir por zero.
+    esperado = qualidade_bayesiana(0.0, 0, m=500, media_global=0.0) / 10.0
+    assert resultado.qualities[1] == pytest.approx(esperado)

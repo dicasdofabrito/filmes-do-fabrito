@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import asyncio
 import logging
-import re
 from collections.abc import Iterable
 
 from sync.tmdb import TMDBClient, TMDBError
@@ -22,19 +21,6 @@ INTERVALO_LOG = 500
 # existir no TMDB — fusao de duplicatas, remocao de conteudo. Isso nao e
 # uma falha do build: e um fato sobre o catalogo, tratado a parte.
 STATUS_FILME_REMOVIDO = {404, 410}
-
-_PADRAO_STATUS = re.compile(r"^(\d{3}) em ")
-
-
-def _status_de(erro: TMDBError) -> int | None:
-    """Extrai o status HTTP de um TMDBError definitivo, quando presente.
-
-    TMDBClient nao expoe o status como atributo estruturado, so no texto da
-    mensagem ("{status} em {path}: ..."). Erros que nao vem dessa origem
-    (ex.: "esgotadas N tentativas em ...") nao casam e devolvem None.
-    """
-    casamento = _PADRAO_STATUS.match(str(erro))
-    return int(casamento.group(1)) if casamento else None
 
 
 async def buscar_detalhes(
@@ -65,7 +51,7 @@ async def buscar_detalhes(
                     language="pt-BR",
                 )
             except TMDBError as erro:
-                if _status_de(erro) in STATUS_FILME_REMOVIDO:
+                if erro.status in STATUS_FILME_REMOVIDO:
                     removidos.add(id_)
                     return None
                 raise

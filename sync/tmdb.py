@@ -14,7 +14,18 @@ STATUS_TEMPORARIOS = {429, 500, 502, 503, 504}
 
 
 class TMDBError(RuntimeError):
-    """Falha definitiva ao falar com o TMDB."""
+    """Falha definitiva ao falar com o TMDB.
+
+    `status` carrega o código HTTP quando a falha veio de uma resposta com
+    status definitivo (ex.: 404). É None para falhas sem status HTTP, como
+    o esgotamento de tentativas. Existe como atributo estruturado para que
+    quem trata o erro (ex.: `sync/enrich.py`) não precise reconstruir essa
+    informação fazendo regex na mensagem.
+    """
+
+    def __init__(self, mensagem: str, *, status: int | None = None) -> None:
+        super().__init__(mensagem)
+        self.status = status
 
 
 class TMDBClient:
@@ -59,10 +70,13 @@ class TMDBClient:
 
                 if resposta.status_code not in STATUS_TEMPORARIOS:
                     raise TMDBError(
-                        f"{resposta.status_code} em {path}: {resposta.text[:200]}"
+                        f"{resposta.status_code} em {path}: {resposta.text[:200]}",
+                        status=resposta.status_code,
                     )
 
-                ultima = TMDBError(f"{resposta.status_code} em {path}")
+                ultima = TMDBError(
+                    f"{resposta.status_code} em {path}", status=resposta.status_code
+                )
                 # O TMDB informa quanto esperar quando limita a taxa.
                 cabecalho = resposta.headers.get("Retry-After")
                 if cabecalho is not None:

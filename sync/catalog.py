@@ -63,7 +63,10 @@ class Movie:
             language=row["l"],
             track=row["st"],
             theatrical=row["th"],
-            added=row["a"],
+            # `catalog.jsonl` é dado de projeto com vida longa versionado no
+            # git; um arquivo gravado antes deste campo existir não pode
+            # virar ilegível — degrada para string vazia.
+            added=row.get("a", ""),
         )
 
 
