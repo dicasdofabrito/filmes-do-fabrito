@@ -145,16 +145,22 @@ def _curto(ctx: Contexto) -> tuple[str, tuple[int, ...]]:
 
 def _classicos(ctx: Contexto) -> tuple[str, tuple[int, ...]]:
     limite_ano = ctx.hoje.year - ANOS_PARA_CLASSICO
-    corte = _percentil(list(ctx.pontuacao.qualities.values()), 0.98)
 
-    ids = {
+    elegiveis = {
         i
         for i, filme in ctx.catalogo.items()
         if filme.year is not None
         and filme.year <= limite_ano
-        and ctx.pontuacao.qualities.get(i, 0.0) >= corte
         and i not in ctx.perfil.movies
     }
+    # Corte calculado sobre a própria população elegível: usar a distribuição
+    # do catálogo inteiro (incluindo vistos) faria o corte fugir do alcance à
+    # medida que os melhores filmes fossem assistidos.
+    corte = _percentil(
+        [ctx.pontuacao.qualities.get(i, 0.0) for i in elegiveis], 0.98
+    )
+
+    ids = {i for i in elegiveis if ctx.pontuacao.qualities.get(i, 0.0) >= corte}
     return "Clássicos que você nunca viu", _ordenar(ctx, ids)
 
 
@@ -166,7 +172,11 @@ def _aposta(ctx: Contexto) -> tuple[str, tuple[int, ...]]:
     afins = [ctx.pontuacao.affinities.get(i, 0.0) for i in candidatos]
     piso = _percentil(afins, 0.40)
     teto = _percentil(afins, 0.70)
-    corte_qualidade = _percentil(list(ctx.pontuacao.qualities.values()), 0.95)
+    # Corte de qualidade sobre a própria população não vista, pelo mesmo
+    # motivo do corte em _classicos.
+    corte_qualidade = _percentil(
+        [ctx.pontuacao.qualities.get(i, 0.0) for i in candidatos], 0.95
+    )
 
     ids = {
         i
@@ -206,14 +216,20 @@ def _ponto_cego(ctx: Contexto) -> tuple[str, tuple[int, ...]]:
 
     alvo = min(elegiveis, key=elegiveis.get)
     tipo, valor = alvo
-    corte = _percentil(list(ctx.pontuacao.qualities.values()), 0.98)
 
-    ids = {
+    candidatos = {
         i
         for i in _nao_vistos(ctx)
         if valor in features_of(ctx.catalogo[i])[tipo]
-        and ctx.pontuacao.qualities.get(i, 0.0) >= corte
     }
+    # Corte de qualidade sobre a própria população elegível para a dimensão
+    # escolhida — as estatísticas de seleção da dimensão continuam sobre o
+    # catálogo inteiro (correto), só o corte de qualidade muda.
+    corte = _percentil(
+        [ctx.pontuacao.qualities.get(i, 0.0) for i in candidatos], 0.98
+    )
+
+    ids = {i for i in candidatos if ctx.pontuacao.qualities.get(i, 0.0) >= corte}
     return "Ponto cego", _ordenar(ctx, ids)
 
 
