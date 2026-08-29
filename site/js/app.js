@@ -1,6 +1,6 @@
 import { iniciarRoteador, navegarPara } from "./router.js";
 import { carregarCatalogo, carregarFileiras, filtrarGrade, obterFilme, obterDetalheFilme } from "./store.js";
-import { renderizarHome, renderizarGrade, popularFiltroGenero, renderizarFicha, renderizarSimilares } from "./ui.js";
+import { renderizarHome, renderizarGrade, popularFiltroGenero, renderizarFicha, renderizarSimilares, renderizarOnboarding } from "./ui.js";
 import { carregarVibes, buscarVibe } from "./vibes.js";
 import { filmesSimilares } from "./motor.js";
 import { perfilLocal } from "./perfil.js";
@@ -143,7 +143,20 @@ async function aoMudarRota(rota) {
 }
 
 async function iniciar() {
-  await Promise.all([carregarCatalogo(), carregarFileiras()]);
+  const { movies } = await carregarCatalogo();
+  await carregarFileiras();
+
+  const perfilVazio = Object.keys(perfilLocal().movies).length === 0;
+  if (perfilVazio && !localStorage.getItem("fdf_onboarding_visto")) {
+    document.getElementById("onboarding").classList.remove("oculto");
+    renderizarOnboarding(movies, () => {
+      localStorage.setItem("fdf_onboarding_visto", "true");
+      document.getElementById("onboarding").classList.add("oculto");
+      iniciarRoteador(aoMudarRota);
+    });
+    return;
+  }
+
   iniciarRoteador(aoMudarRota);
 }
 

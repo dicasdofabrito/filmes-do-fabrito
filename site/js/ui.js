@@ -4,6 +4,7 @@
 
 import { obterFilme } from "./store.js";
 import { registrarAvaliacao, perfilLocal } from "./perfil.js";
+import { amostraOnboarding } from "./onboarding.js";
 
 const URL_POSTER = "https://image.tmdb.org/t/p/w185";
 const URL_POSTER_GRANDE = "https://image.tmdb.org/t/p/w500";
@@ -118,6 +119,42 @@ export function renderizarSimilares(pares) {
   }
   container.innerHTML = "<h3>Se você gostou desse</h3>";
   container.appendChild(linha);
+}
+
+export function renderizarOnboarding(filmes, aoConcluir) {
+  const amostra = amostraOnboarding(filmes, 200);
+  let indice = 0;
+
+  const container = document.getElementById("onboarding-cartoes");
+
+  function proximo() {
+    if (indice >= amostra.length) {
+      aoConcluir();
+      return;
+    }
+    const filme = amostra[indice];
+    container.innerHTML = `
+      <img src="https://image.tmdb.org/t/p/w342${filme.p || ""}" alt="${filme.t}" style="width:200px;border-radius:8px" />
+      <p>${filme.t} ${filme.y ? `(${filme.y})` : ""}</p>
+      <div class="onboarding-botoes">
+        <button data-acao="visto-gostei">👍 Já vi, gostei</button>
+        <button data-acao="visto-nao-gostei">👎 Já vi, não gostei</button>
+        <button data-acao="nao-visto">Não vi</button>
+        <button data-acao="pular">Pular</button>
+      </div>
+    `;
+    container.querySelectorAll("button").forEach((botao) => {
+      botao.addEventListener("click", () => {
+        const acao = botao.dataset.acao;
+        if (acao === "visto-gostei") registrarAvaliacao(filme.id, { rating: 1, seen: true });
+        else if (acao === "visto-nao-gostei") registrarAvaliacao(filme.id, { rating: -1, seen: true });
+        else if (acao === "nao-visto") registrarAvaliacao(filme.id, { seen: false });
+        indice++;
+        proximo();
+      });
+    });
+  }
+  proximo();
 }
 
 export function renderizarHome(fileiras) {

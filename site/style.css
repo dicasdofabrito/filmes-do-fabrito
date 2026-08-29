@@ -142,3 +142,6 @@ main { flex: 1; padding: 16px 20px 40px; }
 }
 .botao-acao.ativo { border-color: var(--acento); color: var(--acento); }
 .botao-acao:hover { border-color: var(--acento); }
+
+#onboarding { text-align: center; padding-top: 40px; }
+.onboarding-botoes { display: flex; gap: 8px; justify-content: center; margin-top: 16px; flex-wrap: wrap; }
