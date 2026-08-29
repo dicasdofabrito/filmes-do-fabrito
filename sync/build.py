@@ -25,6 +25,25 @@ def _escrever(caminho: Path, dados: object) -> int:
     return len(texto.encode("utf-8"))
 
 
+def calcular_offsets(caminho: Path) -> dict[int, tuple[int, int]]:
+    """Lê catalog.jsonl e devolve, por id, o intervalo de bytes [inicio,
+    fim] (fim inclusive) da linha daquele filme -- o mesmo intervalo que um
+    header `Range: bytes=inicio-fim` HTTP busca. Cada linha é
+    `json.dumps(row) + "\n"`; o offset é medido nos bytes UTF-8 do arquivo,
+    não em caracteres, porque é isso que o servidor conta para o Range.
+    """
+    offsets: dict[int, tuple[int, int]] = {}
+    posicao = 0
+    with caminho.open("rb") as arquivo:
+        for linha_bytes in arquivo:
+            linha = json.loads(linha_bytes.decode("utf-8"))
+            inicio = posicao
+            fim = posicao + len(linha_bytes) - 1
+            offsets[linha["id"]] = (inicio, fim)
+            posicao += len(linha_bytes)
+    return offsets
+
+
 def escrever_site_data(
     destino: Path,
     catalogo: dict[int, Movie],
@@ -54,6 +73,10 @@ def escrever_site_data(
                 "n": f.vote_count,
                 # "th": theatrical — a fileira "Nos cinemas" filtra por ele.
                 "th": f.theatrical,
+                "p": f.poster_path,
+                "d": list(f.directors),
+                "c": list(f.cast),
+                "l": f.language,
             }
             for f in ordenados
         ]
@@ -86,3 +109,11 @@ def escrever_site_data(
         destino / "keywords.json",
         {str(k): sorted(v) for k, v in sorted(invertido.items())},
     )
+
+    caminho_catalogo = destino.parent.parent / "data" / "catalog.jsonl"
+    if caminho_catalogo.exists():
+        offsets = calcular_offsets(caminho_catalogo)
+        _escrever(
+            destino / "offsets.json",
+            {str(id_): [inicio, fim] for id_, (inicio, fim) in sorted(offsets.items())},
+        )

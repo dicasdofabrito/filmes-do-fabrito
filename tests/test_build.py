@@ -3,8 +3,8 @@ from pathlib import Path
 
 import pytest
 
-from sync.build import IndiceGrandeDemais, escrever_site_data
-from sync.catalog import Movie
+from sync.build import IndiceGrandeDemais, escrever_site_data, calcular_offsets
+from sync.catalog import Movie, escrever_catalogo
 from sync.config import Build
 from sync.score import Scoring
 from sync.shelves import Shelf
@@ -90,3 +90,62 @@ def test_index_carrega_vote_count_e_theatrical(tmp_path: Path):
     assert por_id[1]["th"] is True
     assert por_id[2]["n"] == 0
     assert por_id[2]["th"] is False
+
+
+def test_index_carrega_poster_diretor_elenco_e_idioma(tmp_path: Path):
+    filme = Movie(
+        id=1, title="F1", year=2000, runtime=100, genres=(18,), keywords=(),
+        vote_average=7.0, vote_count=1000, directors=(9339,), cast=(6384, 2975),
+        language="en", track="acervo", theatrical=False, added="2026-08-27",
+        poster_path="/matrix.jpg", overview="sinopse",
+    )
+    escrever_site_data(
+        tmp_path, {1: filme}, _pontuacao({1: 0.5}), [], Build(6.0, 24)
+    )
+    dados = json.loads((tmp_path / "index.json").read_text(encoding="utf-8"))
+    linha = dados["movies"][0]
+    assert linha["p"] == "/matrix.jpg"
+    assert linha["d"] == [9339]
+    assert linha["c"] == [6384, 2975]
+    assert linha["l"] == "en"
+    # sinopse NUNCA vai pro index -- só pro catalog.jsonl (decisão #2 do
+    # documento de design: uma sinopse por filme pesaria demais no índice).
+    assert "ov" not in linha
+
+
+def test_calcular_offsets_reproduz_a_linha_exata(tmp_path: Path):
+    catalogo = tmp_path / "data" / "catalog.jsonl"
+    catalogo.parent.mkdir(parents=True)
+    filmes = [
+        _filme(1, keywords=(900,)),
+        _filme(2, keywords=(900, 901)),
+        _filme(3),
+    ]
+    escrever_catalogo(catalogo, filmes)
+
+    offsets = calcular_offsets(catalogo)
+
+    bruto = catalogo.read_bytes()
+    for filme in filmes:
+        inicio, fim = offsets[filme.id]
+        trecho = bruto[inicio : fim + 1]
+        linha = json.loads(trecho.decode("utf-8"))
+        assert linha["id"] == filme.id
+        # a linha capturada termina em quebra de linha, como escrita
+        assert trecho.endswith(b"\n")
+
+
+def test_offsets_json_e_publicado_no_destino(tmp_path: Path):
+    catalogo_dir = tmp_path / "data"
+    catalogo_dir.mkdir()
+    escrever_catalogo(catalogo_dir / "catalog.jsonl", [_filme(1), _filme(2)])
+
+    site_dir = tmp_path / "site" / "data"
+    escrever_site_data(
+        site_dir, {1: _filme(1), 2: _filme(2)},
+        _pontuacao({1: 0.5, 2: 0.5}), [], Build(6.0, 24),
+    )
+
+    offsets = json.loads((site_dir / "offsets.json").read_text(encoding="utf-8"))
+    assert set(offsets.keys()) == {"1", "2"}
+    assert len(offsets["1"]) == 2
