@@ -198,6 +198,48 @@ linguagens, precisam ser mantidas em sincronia manualmente se os pesos do
 `config.json` mudarem um dia — registro isso como limite aceito, no mesmo
 espírito da seção 10 do spec original.
 
+## 7.1. Correção: `fetch()` resolve contra o documento, não contra o módulo
+
+**Problema descoberto durante a implementação.** Ao escrever os briefs das
+tasks 5, 8, 11 e 12, tratei caminhos relativos em chamadas `fetch()` como se
+resolvessem contra a localização do arquivo `.js` que faz a chamada — o jeito
+como `import` funciona em módulos ES. Não é assim: `fetch()` (como qualquer
+URL relativa em HTML/JS fora de `import`) resolve contra `document.baseURI`,
+ou seja, a URL da própria página (`site/index.html`, cuja base efetiva é
+`.../site/`), **não** contra `site/js/store.js` ou qualquer outro arquivo
+que faça a chamada.
+
+Isso inverteu a contagem de `../` em vários lugares:
+- Arquivos que o **próprio build do site** gera, irmãos de `index.html`
+  (`site/data/index.json`, `shelves.json`, `offsets.json`, `keywords.json`):
+  caminho sem `../` nenhum — `"data/index.json"`.
+- Arquivos que vivem na **raiz do repositório** (`data/vibes.json`,
+  `data/nomes.json`, `data/generos.json`, `data/catalog.jsonl`,
+  `config.json`): um único `../` a partir de `site/js/qualquer-arquivo.js`,
+  porque a base efetiva já é `site/`, não `site/js/`.
+
+Confirmado experimentalmente com `new URL(caminho, "https://.../site/").href`
+antes de corrigir os briefs, não só por dedução.
+
+**Onde o erro apareceu e como foi resolvido:**
+- `store.js` (Task 5, já implementada): `CAMINHO_INDICE`/`CAMINHO_FILEIRAS`
+  tinham `../` de sobra — corrigido via fix round depois de detectado durante
+  a verificação visual da Task 9 (o bug ficou mascarado localmente porque o
+  servidor de preview usado servia `site/` como raiz, e `..` acima da raiz do
+  servidor simplesmente trava na própria raiz — coincidindo, por acidente,
+  com o caminho certo. Em produção, com o repositório inteiro servido, não
+  haveria essa coincidência).
+- `vibes.js` (Task 8): já estava correto por acaso (o arquivo que ele busca
+  é da raiz do repositório, então o único `../` que eu tinha escrito era o
+  certo).
+- Tasks 11 e 12 (ainda não implementadas no momento da descoberta): código do
+  plano corrigido antes do brief ser gerado — `offsets.json` perdeu o `../`
+  que não devia ter, `config.json` perdeu um `../` a mais que não devia ter.
+
+**Custo se essa correção estiver errada:** nenhum caminho a mais nem a menos
+muda o comportamento fora do cenário exato que ela resolve; testei a
+resolução real via `new URL()` no navegador antes de aplicar.
+
 ## 8. Persistência do token do GitHub
 
 O Fabio nunca me entrega o próprio token de escrita — nem eu peço. A UI de

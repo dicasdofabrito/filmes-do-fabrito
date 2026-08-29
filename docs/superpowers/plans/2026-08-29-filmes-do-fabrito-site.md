@@ -1777,7 +1777,13 @@ Expected: FAIL — `obterDetalheFilme` não existe
 - [ ] **Step 3: Implementar em `site/js/store.js`**
 
 ```javascript
-const CAMINHO_OFFSETS = "../data/offsets.json";
+// offsets.json é saída do próprio build do site (irmão de index.html em
+// site/data/), por isso sem "../" -- diferente de catalog.jsonl, que vive
+// na raiz do repositório. fetch() resolve caminho relativo contra a URL do
+// DOCUMENTO (site/index.html), não contra a localização deste arquivo .js
+// -- confirmado com new URL() antes de escrever este brief, ver documento
+// de decisões do Plano 2.
+const CAMINHO_OFFSETS = "data/offsets.json";
 const CAMINHO_CATALOGO = "../data/catalog.jsonl";
 
 let _offsetsCache = null;
@@ -1927,7 +1933,7 @@ async function abrirFicha(id) {
   const catalogoMapa = new Map(movies.map((f) => [f.id, f]));
   const filmeIndice = catalogoMapa.get(id);
   if (filmeIndice) {
-    const configResposta = await fetch("../../config.json");
+    const configResposta = await fetch("../config.json");
     const config = await configResposta.json();
     const pares = filmesSimilares(filmeIndice, catalogoMapa, config.motor.pesos, config.motor.peso_afinidade, 12);
     renderizarSimilares(pares);
@@ -1943,11 +1949,14 @@ E, dentro de `aoMudarRota`, adicione o ramo:
   }
 ```
 
-Note que o caminho de `config.json` a partir de `site/js/app.js` é
-`../../config.json` (sobe de `site/js/` para `site/`, depois para a raiz
-do repositório, onde `config.json` já vive) — confira esse caminho contra
-a estrutura real do repositório ao verificar visualmente; ajuste se a
-hospedagem final (Task 16) mudar a profundidade relativa.
+`fetch()` resolve caminho relativo contra a URL do **documento** que carregou
+o script (`site/index.html`, cuja base é `.../site/`), não contra a
+localização do arquivo `.js` que fez a chamada — diferente de `import`, que
+resolve contra o módulo. Por isso `"../config.json"` (um nível acima de
+`site/`, onde `config.json` já vive na raiz do repositório) é o caminho
+certo a partir de `site/js/app.js`, não dois níveis. Confirmado com
+`new URL("../config.json", "https://.../site/").href` antes de escrever
+este brief — ver documento de decisões do Plano 2.
 
 - [ ] **Step 3: Estilo da ficha**
 
