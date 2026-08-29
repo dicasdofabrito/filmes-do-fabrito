@@ -1,0 +1,11 @@
+# data/catalog.jsonl é ordenado por id e escrito com newline="\n" de
+# propósito: é o que permite ao git guardar apenas o delta diário em vez do
+# arquivo inteiro (ver docs/superpowers/specs/2026-08-27-filmes-do-fabrito-design.md,
+# seção 4.1). Forçar LF aqui remove a dependência do core.autocrlf de cada
+# máquina -- sem isso, um checkout com autocrlf=true reescreveria o arquivo
+# inteiro na árvore de trabalho, mesmo que o git normalize de volta ao commitar.
+data/catalog.jsonl text eol=lf
+data/*.json text eol=lf
+data/*.json.gz -text
+
+*.py text eol=lf
