@@ -1854,7 +1854,7 @@ e o botão "o que mais se parece com esse" usando `motor.js`.
 
 **Interfaces:**
 - Consumes: `obterDetalheFilme`, `obterFilme`, `carregarCatalogo` de
-  `store.js`; `filmesSimilares` de `motor.js`; `../../data/nomes.json`
+  `store.js`; `filmesSimilares` de `motor.js`; `../data/nomes.json`
   (novo fetch, cacheado, usado aqui e nos títulos "Mais de"/"Com" que já
   vêm prontos em `shelves.json` — mas a ficha precisa resolver nomes de
   keyword, que não vêm em nenhum título pré-pronto).
