@@ -3,6 +3,7 @@ import { carregarCatalogo, carregarFileiras, filtrarGrade, obterFilme, obterDeta
 import { renderizarHome, renderizarGrade, popularFiltroGenero, renderizarFicha, renderizarSimilares } from "./ui.js";
 import { carregarVibes, buscarVibe } from "./vibes.js";
 import { filmesSimilares } from "./motor.js";
+import { perfilLocal } from "./perfil.js";
 
 const TELAS = {
   home: document.getElementById("tela-home"),
@@ -17,7 +18,7 @@ function mostrarTela(nome) {
 }
 
 let _generos = null;
-let _idsVistos = new Set(); // populado de verdade na Task 14 (perfil)
+let _idsVistos = new Set(); // repopulado a cada abrirGrade() a partir de perfilLocal() (Task 14)
 let _populacaoBaseAtual = [];
 let _vibeIdsAtual = null;
 
@@ -54,6 +55,11 @@ function lerFiltrosAtuais() {
 }
 
 async function abrirGrade(chaveFileiraOuNull, textoVibeOuNull) {
+  _idsVistos = new Set(
+    Object.entries(perfilLocal().movies)
+      .filter(([, entrada]) => entrada.seen)
+      .map(([id]) => Number(id))
+  );
   await carregarGeneros();
   const { movies } = await carregarCatalogo();
   popularFiltroDecada(movies);

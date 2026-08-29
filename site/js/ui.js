@@ -3,6 +3,7 @@
 // sem teste unitário (ver Global Constraints), verificação é visual.
 
 import { obterFilme } from "./store.js";
+import { registrarAvaliacao, perfilLocal } from "./perfil.js";
 
 const URL_POSTER = "https://image.tmdb.org/t/p/w185";
 const URL_POSTER_GRANDE = "https://image.tmdb.org/t/p/w500";
@@ -53,6 +54,30 @@ export function popularFiltroGenero(generos) {
   }
 }
 
+function renderizarAcoesFicha(idFilme) {
+  const container = document.getElementById("ficha-acoes");
+  const entrada = perfilLocal().movies[String(idFilme)] || {};
+
+  const botoes = [
+    { rotulo: "Já vi", ativo: entrada.seen, aoClicar: () => registrarAvaliacao(idFilme, { seen: !entrada.seen }) },
+    { rotulo: "👍 Gostei", ativo: entrada.rating === 1, aoClicar: () => registrarAvaliacao(idFilme, { rating: 1, seen: true }) },
+    { rotulo: "👎 Não gostei", ativo: entrada.rating === -1, aoClicar: () => registrarAvaliacao(idFilme, { rating: -1, seen: true }) },
+    { rotulo: "🔖 Quero ver", ativo: entrada.want, aoClicar: () => registrarAvaliacao(idFilme, { want: !entrada.want }) },
+  ];
+
+  container.innerHTML = "";
+  for (const { rotulo, ativo, aoClicar } of botoes) {
+    const botao = document.createElement("button");
+    botao.textContent = rotulo;
+    botao.className = ativo ? "botao-acao ativo" : "botao-acao";
+    botao.addEventListener("click", () => {
+      aoClicar();
+      renderizarAcoesFicha(idFilme); // redesenha para refletir o novo estado
+    });
+    container.appendChild(botao);
+  }
+}
+
 export function renderizarFicha(detalhe, nomes) {
   const container = document.getElementById("ficha-conteudo");
 
@@ -76,6 +101,8 @@ export function renderizarFicha(detalhe, nomes) {
       </div>
     </div>
   `;
+
+  renderizarAcoesFicha(detalhe.id);
 }
 
 export function renderizarSimilares(pares) {

@@ -131,3 +131,14 @@ main { flex: 1; padding: 16px 20px 40px; }
   font-size: 0.8rem;
 }
 .ficha-acoes { display: flex; gap: 8px; flex-wrap: wrap; margin: 16px 0; }
+.botao-acao {
+  background: var(--bg-elevado);
+  color: var(--texto);
+  border: 1px solid var(--borda);
+  border-radius: 8px;
+  padding: 8px 14px;
+  cursor: pointer;
+  font-size: 0.9rem;
+}
+.botao-acao.ativo { border-color: var(--acento); color: var(--acento); }
+.botao-acao:hover { border-color: var(--acento); }
