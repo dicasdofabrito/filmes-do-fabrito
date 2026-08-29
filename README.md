@@ -57,8 +57,11 @@ mão serve para testar mudanças no pipeline localmente.
 | `tmdb_ids_ontem.json.gz` | Último export de ids do TMDB, usado para calcular o diff do dia seguinte. |
 
 `site/data/` (index, fileiras, índice de keywords) é gerado pelo build a
-partir desses arquivos — não é editado à mão e não fica no controle de
-versão.
+partir desses arquivos e não é editado à mão. Está listado no
+`.gitignore` para que builds locais não entrem no controle de versão por
+engano; quem toca esse caminho no histórico do git é só a sincronização
+diária (`.github/workflows/sync.yml`), que força a inclusão com
+`git add -f` depois de rodar o build.
 
 ### Regerando `data/vibes.json`
 

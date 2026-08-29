@@ -31,7 +31,8 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add data/ site/data/
+          git add data/
+          git add -f site/data/
           git diff --staged --quiet || git commit -m "chore: sync diário do catálogo"
           git push
 
