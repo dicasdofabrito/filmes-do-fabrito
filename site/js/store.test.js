@@ -4,6 +4,7 @@ import {
   carregarCatalogo,
   obterFilme,
   filtrarGrade,
+  obterDetalheFilme,
   _resetarCacheParaTeste,
 } from "./store.js";
 
@@ -99,4 +100,56 @@ test("filtrarGrade com vibeIds exige interseccao de keywords", () => {
     vibeIds: [900, 950],
   });
   assert.deepEqual(resultado.map((f) => f.id), [1]);
+});
+
+test("obterDetalheFilme usa Range e devolve so a linha pedida", async () => {
+  _resetarCacheParaTeste();
+  const linhaFilme = JSON.stringify({ id: 603, t: "Matrix", ov: "sinopse" }) + "\n";
+
+  globalThis.fetch = async (url, opcoes) => {
+    if (url.includes("offsets.json")) {
+      return { ok: true, status: 200, json: async () => ({ "603": [0, linhaFilme.length - 1] }) };
+    }
+    if (url.includes("catalog.jsonl")) {
+      const rangeHeader = opcoes.headers.Range;
+      const [, fim] = rangeHeader.match(/bytes=(\d+)-(\d+)/).slice(1).map(Number);
+      return {
+        ok: true, status: 206,
+        text: async () => linhaFilme.slice(0, fim + 1),
+      };
+    }
+    throw new Error(`fetch nao mockado: ${url}`);
+  };
+
+  const detalhe = await obterDetalheFilme(603);
+  assert.equal(detalhe.t, "Matrix");
+  assert.equal(detalhe.ov, "sinopse");
+});
+
+test("obterDetalheFilme devolve null para id sem offset", async () => {
+  _resetarCacheParaTeste();
+  globalThis.fetch = async (url) => {
+    if (url.includes("offsets.json")) {
+      return { ok: true, status: 200, json: async () => ({}) };
+    }
+    throw new Error("nao deveria buscar catalog.jsonl sem offset");
+  };
+
+  assert.equal(await obterDetalheFilme(999999), null);
+});
+
+test("obterDetalheFilme cai para o corpo inteiro quando Range nao e suportado", async () => {
+  _resetarCacheParaTeste();
+  const linhaFilme = JSON.stringify({ id: 1, t: "F1" }) + "\n";
+
+  globalThis.fetch = async (url) => {
+    if (url.includes("offsets.json")) {
+      return { ok: true, status: 200, json: async () => ({ "1": [0, linhaFilme.length - 1] }) };
+    }
+    // Servidor ignora o Range e devolve 200 com o arquivo inteiro.
+    return { ok: true, status: 200, text: async () => linhaFilme + '{"id":2,"t":"F2"}\n' };
+  };
+
+  const detalhe = await obterDetalheFilme(1);
+  assert.equal(detalhe.t, "F1");
 });

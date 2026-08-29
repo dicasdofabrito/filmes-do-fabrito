@@ -9,9 +9,19 @@
 const CAMINHO_INDICE = "data/index.json";
 const CAMINHO_FILEIRAS = "data/shelves.json";
 
+// offsets.json é saída do próprio build do site (irmão de index.html em
+// site/data/), por isso sem "../" -- diferente de catalog.jsonl, que vive
+// na raiz do repositório. fetch() resolve caminho relativo contra a URL do
+// DOCUMENTO (site/index.html), não contra a localização deste arquivo .js
+// -- confirmado com new URL() antes de escrever este brief, ver documento
+// de decisões do Plano 2.
+const CAMINHO_OFFSETS = "data/offsets.json";
+const CAMINHO_CATALOGO = "../data/catalog.jsonl";
+
 let _catalogoPromise = null;
 let _fileirasPromise = null;
 let _porId = null;
+let _offsetsCache = null;
 
 export async function carregarCatalogo() {
   if (!_catalogoPromise) {
@@ -66,8 +76,45 @@ export function filtrarGrade(filmes, filtros) {
   });
 }
 
+async function carregarOffsets() {
+  if (_offsetsCache) return _offsetsCache;
+  const resposta = await fetch(CAMINHO_OFFSETS);
+  if (!resposta.ok) {
+    throw new Error(`falha ao carregar offsets.json: ${resposta.status}`);
+  }
+  _offsetsCache = await resposta.json();
+  return _offsetsCache;
+}
+
+export async function obterDetalheFilme(id) {
+  const offsets = await carregarOffsets();
+  const par = offsets[String(id)];
+  if (!par) return null;
+
+  const [inicio, fim] = par;
+  const resposta = await fetch(CAMINHO_CATALOGO, {
+    headers: { Range: `bytes=${inicio}-${fim}` },
+  });
+  if (!resposta.ok) {
+    throw new Error(`falha ao buscar linha do catalogo: ${resposta.status}`);
+  }
+
+  const texto = await resposta.text();
+
+  if (resposta.status === 206) {
+    // Range respeitado: o corpo JÁ é exatamente a linha pedida.
+    return JSON.parse(texto.trim());
+  }
+
+  // Range ignorado (status 200, corpo inteiro ou maior que o esperado):
+  // corta manualmente pelo offset conhecido.
+  const trecho = texto.slice(inicio, fim + 1);
+  return JSON.parse(trecho.trim());
+}
+
 export function _resetarCacheParaTeste() {
   _catalogoPromise = null;
   _fileirasPromise = null;
   _porId = null;
+  _offsetsCache = null;
 }
