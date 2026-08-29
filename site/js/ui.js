@@ -5,6 +5,7 @@
 import { obterFilme } from "./store.js";
 
 const URL_POSTER = "https://image.tmdb.org/t/p/w185";
+const URL_POSTER_GRANDE = "https://image.tmdb.org/t/p/w500";
 
 function elementoPoster(id) {
   const filme = obterFilme(id);
@@ -50,6 +51,46 @@ export function popularFiltroGenero(generos) {
     opcao.textContent = nome;
     select.appendChild(opcao);
   }
+}
+
+export function renderizarFicha(detalhe, nomes) {
+  const container = document.getElementById("ficha-conteudo");
+
+  const nomeDiretores = detalhe.d.map((id) => nomes.director[id] || `#${id}`).join(", ");
+  const nomeElenco = detalhe.c.map((id) => nomes.cast[id] || `#${id}`).join(", ");
+  const chipsKeywords = detalhe.k
+    .map((id) => nomes.keyword && nomes.keyword[id])
+    .filter(Boolean);
+
+  container.innerHTML = `
+    <div class="ficha">
+      <img class="ficha-poster" src="${detalhe.p ? URL_POSTER_GRANDE + detalhe.p : ""}" alt="${detalhe.t}" />
+      <div class="ficha-info">
+        <h2>${detalhe.t} ${detalhe.y ? `(${detalhe.y})` : ""}</h2>
+        <p class="ficha-meta">${detalhe.r} min ${nomeDiretores ? "· dirigido por " + nomeDiretores : ""}</p>
+        <p class="ficha-sinopse">${detalhe.ov || "Sem sinopse disponível."}</p>
+        ${nomeElenco ? `<p class="ficha-elenco"><strong>Elenco:</strong> ${nomeElenco}</p>` : ""}
+        ${chipsKeywords.length ? `<div class="ficha-keywords">${chipsKeywords.map((k) => `<span class="chip">${k}</span>`).join("")}</div>` : ""}
+        <div class="ficha-acoes" id="ficha-acoes"></div>
+        <div id="ficha-similares"></div>
+      </div>
+    </div>
+  `;
+}
+
+export function renderizarSimilares(pares) {
+  const container = document.getElementById("ficha-similares");
+  if (pares.length === 0) {
+    container.innerHTML = "<p>Sem sugestões parecidas no momento.</p>";
+    return;
+  }
+  const linha = document.createElement("div");
+  linha.className = "fileira-linha";
+  for (const { id } of pares) {
+    linha.appendChild(elementoPoster(id));
+  }
+  container.innerHTML = "<h3>Se você gostou desse</h3>";
+  container.appendChild(linha);
 }
 
 export function renderizarHome(fileiras) {

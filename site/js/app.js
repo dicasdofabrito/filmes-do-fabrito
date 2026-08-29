@@ -1,7 +1,8 @@
 import { iniciarRoteador, navegarPara } from "./router.js";
-import { carregarCatalogo, carregarFileiras, filtrarGrade, obterFilme } from "./store.js";
-import { renderizarHome, renderizarGrade, popularFiltroGenero } from "./ui.js";
+import { carregarCatalogo, carregarFileiras, filtrarGrade, obterFilme, obterDetalheFilme } from "./store.js";
+import { renderizarHome, renderizarGrade, popularFiltroGenero, renderizarFicha, renderizarSimilares } from "./ui.js";
 import { carregarVibes, buscarVibe } from "./vibes.js";
+import { filmesSimilares } from "./motor.js";
 
 const TELAS = {
   home: document.getElementById("tela-home"),
@@ -94,6 +95,34 @@ document.getElementById("busca-vibe").addEventListener("keydown", (evento) => {
   navegarPara(`#/grade?vibe=${encodeURIComponent(texto)}`);
 });
 
+let _nomes = null;
+async function carregarNomes() {
+  if (_nomes) return _nomes;
+  const resposta = await fetch("../data/nomes.json");
+  _nomes = await resposta.json();
+  return _nomes;
+}
+
+async function abrirFicha(id) {
+  const [detalhe, nomes] = await Promise.all([obterDetalheFilme(id), carregarNomes()]);
+  if (!detalhe) {
+    document.getElementById("ficha-conteudo").innerHTML = "<p>Filme não encontrado.</p>";
+    return;
+  }
+  renderizarFicha(detalhe, nomes);
+
+  document.getElementById("ficha-similares").innerHTML = "<p>Carregando sugestões…</p>";
+  const { movies } = await carregarCatalogo();
+  const catalogoMapa = new Map(movies.map((f) => [f.id, f]));
+  const filmeIndice = catalogoMapa.get(id);
+  if (filmeIndice) {
+    const configResposta = await fetch("../config.json");
+    const config = await configResposta.json();
+    const pares = filmesSimilares(filmeIndice, catalogoMapa, config.motor.pesos, config.motor.peso_afinidade, 12);
+    renderizarSimilares(pares);
+  }
+}
+
 async function aoMudarRota(rota) {
   mostrarTela(rota.tela);
 
@@ -102,6 +131,8 @@ async function aoMudarRota(rota) {
     renderizarHome(shelves);
   } else if (rota.tela === "grade") {
     await abrirGrade(rota.parametro, rota.vibe ?? null);
+  } else if (rota.tela === "ficha") {
+    await abrirFicha(rota.parametro);
   }
 }
 

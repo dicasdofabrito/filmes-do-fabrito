@@ -116,3 +116,18 @@ main { flex: 1; padding: 16px 20px 40px; }
   grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
   gap: 12px;
 }
+
+.ficha { display: flex; gap: 24px; flex-wrap: wrap; }
+.ficha-poster { width: 280px; border-radius: 10px; flex-shrink: 0; }
+.ficha-info { flex: 1; min-width: 260px; }
+.ficha-meta { color: var(--texto-fraco); margin: 6px 0 14px; }
+.ficha-sinopse { line-height: 1.5; margin-bottom: 14px; }
+.ficha-keywords { display: flex; flex-wrap: wrap; gap: 6px; margin: 10px 0; }
+.chip {
+  background: var(--bg-elevado);
+  border: 1px solid var(--borda);
+  border-radius: 999px;
+  padding: 3px 10px;
+  font-size: 0.8rem;
+}
+.ficha-acoes { display: flex; gap: 8px; flex-wrap: wrap; margin: 16px 0; }
