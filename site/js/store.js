@@ -99,17 +99,25 @@ export async function obterDetalheFilme(id) {
     throw new Error(`falha ao buscar linha do catalogo: ${resposta.status}`);
   }
 
-  const texto = await resposta.text();
-
   if (resposta.status === 206) {
     // Range respeitado: o corpo JÁ é exatamente a linha pedida.
+    const texto = await resposta.text();
     return JSON.parse(texto.trim());
   }
 
   // Range ignorado (status 200, corpo inteiro ou maior que o esperado):
-  // corta manualmente pelo offset conhecido.
-  const trecho = texto.slice(inicio, fim + 1);
-  return JSON.parse(trecho.trim());
+  // precisamos cortar pelo offset em BYTES, e só decodificar DEPOIS.
+  // inicio/fim vêm de offsets.json em bytes UTF-8 (Task 1). Se a gente
+  // chamasse resposta.text() primeiro, o corpo já viraria uma string JS
+  // (UTF-16) e .slice() passaria a contar unidades de caractere, não byte
+  // -- qualquer caractere multi-byte (acento, etc.) antes ou dentro da
+  // linha pedida desalinharia o corte. Por isso lemos como arrayBuffer(),
+  // cortamos o Uint8Array cru e só então decodificamos.
+  const buffer = await resposta.arrayBuffer();
+  const bytes = new Uint8Array(buffer);
+  const trecho = bytes.slice(inicio, fim + 1);
+  const texto = new TextDecoder("utf-8").decode(trecho);
+  return JSON.parse(texto.trim());
 }
 
 export function _resetarCacheParaTeste() {

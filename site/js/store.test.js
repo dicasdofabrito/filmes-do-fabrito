@@ -141,15 +141,51 @@ test("obterDetalheFilme devolve null para id sem offset", async () => {
 test("obterDetalheFilme cai para o corpo inteiro quando Range nao e suportado", async () => {
   _resetarCacheParaTeste();
   const linhaFilme = JSON.stringify({ id: 1, t: "F1" }) + "\n";
+  const arquivo = linhaFilme + '{"id":2,"t":"F2"}\n';
+  const inicioBytes = 0;
+  const fimBytes = Buffer.byteLength(linhaFilme, "utf8") - 1;
 
   globalThis.fetch = async (url) => {
     if (url.includes("offsets.json")) {
-      return { ok: true, status: 200, json: async () => ({ "1": [0, linhaFilme.length - 1] }) };
+      return { ok: true, status: 200, json: async () => ({ "1": [inicioBytes, fimBytes] }) };
     }
-    // Servidor ignora o Range e devolve 200 com o arquivo inteiro.
-    return { ok: true, status: 200, text: async () => linhaFilme + '{"id":2,"t":"F2"}\n' };
+    // Servidor ignora o Range e devolve 200 com o arquivo inteiro (bytes crus).
+    return {
+      ok: true, status: 200,
+      arrayBuffer: async () => new TextEncoder().encode(arquivo).buffer,
+    };
   };
 
   const detalhe = await obterDetalheFilme(1);
   assert.equal(detalhe.t, "F1");
+});
+
+test("obterDetalheFilme corta pelo offset em BYTES no fallback (acento antes da linha nao desalinha o corte)", async () => {
+  _resetarCacheParaTeste();
+  // "Amélie" tem um caractere multi-byte ("é" = 2 bytes UTF-8, mas 1 unidade
+  // UTF-16/char). Isso faz o offset em bytes do começo de linhaFilme ficar
+  // 1 posição à frente do offset em caracteres -- exatamente o cenário que
+  // quebrava o parse de "Ariel" (dir: "Aki Kaurismäki") em producao.
+  const linhaAnterior = JSON.stringify({ id: 1, t: "Amélie", dir: "Jean-Pierre Jeunet" }) + "\n";
+  const linhaFilme = JSON.stringify({ id: 2, t: "Ariel", dir: "Aki Kaurismäki" }) + "\n";
+  const arquivo = linhaAnterior + linhaFilme;
+
+  const inicioBytes = Buffer.byteLength(linhaAnterior, "utf8");
+  const fimBytes = inicioBytes + Buffer.byteLength(linhaFilme, "utf8") - 1;
+
+  globalThis.fetch = async (url) => {
+    if (url.includes("offsets.json")) {
+      return { ok: true, status: 200, json: async () => ({ "2": [inicioBytes, fimBytes] }) };
+    }
+    // Servidor ignora o Range e devolve 200 com o arquivo inteiro (bytes crus,
+    // nao string ja decodificada -- o bug so aparece se cortarmos bytes reais).
+    return {
+      ok: true, status: 200,
+      arrayBuffer: async () => new TextEncoder().encode(arquivo).buffer,
+    };
+  };
+
+  const detalhe = await obterDetalheFilme(2);
+  assert.equal(detalhe.t, "Ariel");
+  assert.equal(detalhe.dir, "Aki Kaurismäki");
 });
