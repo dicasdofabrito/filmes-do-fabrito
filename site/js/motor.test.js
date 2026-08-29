@@ -10,7 +10,7 @@ import {
 const PESOS = { keyword: 0.4, director: 0.2, cast: 0.15, genre: 0.15, decade: 0.06, language: 0.04 };
 
 function filme(id, extra = {}) {
-  return { id, y: 2000, g: [], k: [], d: [], c: [], l: "en", ...extra };
+  return { id, y: null, g: [], k: [], d: [], c: [], l: "", ...extra };
 }
 
 test("featuresDe deriva a decada do ano", () => {
