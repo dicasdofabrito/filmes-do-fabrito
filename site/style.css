@@ -64,3 +64,31 @@ main { flex: 1; padding: 16px 20px 40px; }
 }
 
 .logo-tmdb { height: 16px; width: auto; }
+
+.fileira { margin-bottom: 28px; }
+
+.fileira-titulo {
+  display: block;
+  color: var(--texto);
+  font-weight: 600;
+  text-decoration: none;
+  margin-bottom: 10px;
+}
+.fileira-titulo:hover { color: var(--acento); }
+
+.fileira-linha {
+  display: flex;
+  gap: 10px;
+  overflow-x: auto;
+  padding-bottom: 6px;
+}
+
+.poster {
+  flex: 0 0 120px;
+  aspect-ratio: 2 / 3;
+  border-radius: 6px;
+  overflow: hidden;
+  background: var(--bg-elevado);
+  display: block;
+}
+.poster img { width: 100%; height: 100%; object-fit: cover; display: block; }

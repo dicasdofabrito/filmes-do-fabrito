@@ -1,5 +1,6 @@
 import { iniciarRoteador } from "./router.js";
 import { carregarCatalogo, carregarFileiras } from "./store.js";
+import { renderizarHome } from "./ui.js";
 
 const TELAS = {
   home: document.getElementById("tela-home"),
@@ -15,8 +16,12 @@ function mostrarTela(nome) {
 
 async function aoMudarRota(rota) {
   mostrarTela(rota.tela);
-  // Cada tela específica (home/grade/ficha) é preenchida nas próximas
-  // tasks -- por ora só a troca de visibilidade já é verificável.
+
+  if (rota.tela === "home") {
+    const { shelves } = await carregarFileiras();
+    renderizarHome(shelves);
+  }
+  // grade/ficha são preenchidas nas próximas tasks.
 }
 
 async function iniciar() {
