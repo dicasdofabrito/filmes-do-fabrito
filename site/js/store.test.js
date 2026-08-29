@@ -33,6 +33,20 @@ test("carregarCatalogo busca uma vez e cacheia", async () => {
   assert.equal(chamadas, 1);
 });
 
+test("carregarCatalogo chamado duas vezes em paralelo busca uma unica vez", async () => {
+  _resetarCacheParaTeste();
+  let chamadas = 0;
+  globalThis.fetch = async () => {
+    chamadas++;
+    return { ok: true, status: 200, json: async () => ({ movies: [{ id: 1, t: "F1" }] }) };
+  };
+
+  const [a, b] = await Promise.all([carregarCatalogo(), carregarCatalogo()]);
+
+  assert.equal(chamadas, 1);
+  assert.deepEqual(a, b);
+});
+
 test("obterFilme encontra pelo id apos carregar", async () => {
   _resetarCacheParaTeste();
   mockFetch({ "index.json": { movies: [{ id: 603, t: "Matrix", y: 1999 }] } });

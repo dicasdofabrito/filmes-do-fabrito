@@ -5,31 +5,34 @@
 const CAMINHO_INDICE = "../data/index.json";
 const CAMINHO_FILEIRAS = "../data/shelves.json";
 
-let _catalogoCache = null;
-let _fileirasCache = null;
+let _catalogoPromise = null;
+let _fileirasPromise = null;
 let _porId = null;
 
 export async function carregarCatalogo() {
-  if (_catalogoCache) return _catalogoCache;
-
-  const resposta = await fetch(CAMINHO_INDICE);
-  if (!resposta.ok) {
-    throw new Error(`falha ao carregar index.json: ${resposta.status}`);
+  if (!_catalogoPromise) {
+    _catalogoPromise = fetch(CAMINHO_INDICE).then(async (resposta) => {
+      if (!resposta.ok) {
+        throw new Error(`falha ao carregar index.json: ${resposta.status}`);
+      }
+      const dados = await resposta.json();
+      _porId = new Map(dados.movies.map((f) => [f.id, f]));
+      return dados;
+    });
   }
-  _catalogoCache = await resposta.json();
-  _porId = new Map(_catalogoCache.movies.map((f) => [f.id, f]));
-  return _catalogoCache;
+  return _catalogoPromise;
 }
 
 export async function carregarFileiras() {
-  if (_fileirasCache) return _fileirasCache;
-
-  const resposta = await fetch(CAMINHO_FILEIRAS);
-  if (!resposta.ok) {
-    throw new Error(`falha ao carregar shelves.json: ${resposta.status}`);
+  if (!_fileirasPromise) {
+    _fileirasPromise = fetch(CAMINHO_FILEIRAS).then(async (resposta) => {
+      if (!resposta.ok) {
+        throw new Error(`falha ao carregar shelves.json: ${resposta.status}`);
+      }
+      return resposta.json();
+    });
   }
-  _fileirasCache = await resposta.json();
-  return _fileirasCache;
+  return _fileirasPromise;
 }
 
 export function obterFilme(id) {
@@ -60,7 +63,7 @@ export function filtrarGrade(filmes, filtros) {
 }
 
 export function _resetarCacheParaTeste() {
-  _catalogoCache = null;
-  _fileirasCache = null;
+  _catalogoPromise = null;
+  _fileirasPromise = null;
   _porId = null;
 }
