@@ -2438,7 +2438,36 @@ E, em `renderizarFicha`, depois de `container.innerHTML = ...`, chame:
   renderizarAcoesFicha(detalhe.id);
 ```
 
-- [ ] **Step 6: Estilo dos botões**
+- [ ] **Step 6: Popular `_idsVistos` de verdade em `app.js`**
+
+O placeholder `let _idsVistos = new Set();` (Task 10) tinha o comentário
+"populado de verdade na Task 14 (perfil)" -- é agora. Sem isso, o filtro
+"Visto?" da grade nunca teria efeito real (o Set fica sempre vazio, "Só
+vistos" mostraria nada e "Só não vistos" mostraria tudo).
+
+Em `site/js/app.js`, importe `perfilLocal` de `./perfil.js`:
+
+```javascript
+import { perfilLocal } from "./perfil.js";
+```
+
+E recalcule `_idsVistos` a partir do perfil local como primeira linha do
+corpo de `abrirGrade`, antes de `await carregarGeneros()` -- assim reflete
+qualquer avaliação registrada desde a última visita à grade:
+
+```javascript
+  _idsVistos = new Set(
+    Object.entries(perfilLocal().movies)
+      .filter(([, entrada]) => entrada.seen)
+      .map(([id]) => Number(id))
+  );
+```
+
+(`perfilLocal().movies` usa chaves string; `filtrarGrade`/`idsVistos.has(f.id)`
+compara contra `f.id` numérico do índice de `index.json`, por isso o
+`Number(id)`.)
+
+- [ ] **Step 7: Estilo dos botões**
 
 Acrescente a `site/style.css`:
 
@@ -2456,14 +2485,18 @@ Acrescente a `site/style.css`:
 .botao-acao:hover { border-color: var(--acento); }
 ```
 
-- [ ] **Step 7: Verificar visualmente**
+- [ ] **Step 8: Verificar visualmente**
 
 Sirva `site/` localmente, abra uma ficha, clique em "👍 Gostei" e confirme
 via screenshot que o botão fica destacado (classe `.ativo`). Recarregue a
 página e abra a mesma ficha de novo — confirme que o estado "gostei"
-persiste (leu de `localStorage`).
+persiste (leu de `localStorage`). Depois, navegue para `#/grade` (ou
+qualquer fileira), selecione "Só vistos" no filtro "Visto?" e confirme que
+o filme marcado como "já vi"/"gostei" aparece na lista; selecione "Só não
+vistos" e confirme que ele desaparece — isso valida o Step 6 (`_idsVistos`
+populado de verdade).
 
-- [ ] **Step 8: Commit**
+- [ ] **Step 9: Commit**
 
 ```bash
 git add site/js/perfil.js site/js/perfil.test.js site/js/ui.js site/js/app.js site/style.css
