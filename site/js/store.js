@@ -2,8 +2,12 @@
 // em memória, e expõe consultas. Nenhum outro módulo faz fetch desses dois
 // arquivos diretamente -- é este módulo, e só ele, que sabe o caminho.
 
-const CAMINHO_INDICE = "../data/index.json";
-const CAMINHO_FILEIRAS = "../data/shelves.json";
+// index.json e shelves.json sao saida do proprio build do site, irmaos de
+// index.html em site/data/ -- por isso sem "../". fetch() resolve caminho
+// relativo contra a URL do documento (site/index.html), nao contra a
+// localizacao deste arquivo .js.
+const CAMINHO_INDICE = "data/index.json";
+const CAMINHO_FILEIRAS = "data/shelves.json";
 
 let _catalogoPromise = null;
 let _fileirasPromise = null;
