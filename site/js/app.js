@@ -54,7 +54,18 @@ function lerFiltrosAtuais() {
   };
 }
 
-async function abrirGrade(chaveFileiraOuNull, textoVibeOuNull) {
+// Filtros de população base por um id único (keyword/diretor/ator clicado
+// na ficha) -- cada um casa contra o array correspondente do índice
+// (k/d/c, já publicados desde o Plano 2). Chave é o nome do parâmetro que
+// router.js extrai da query string; campo é a propriedade do Filme;
+// balde é o balde correspondente em nomes.json; rotulo monta o título.
+const FILTROS_POR_PESSOA_OU_KEYWORD = [
+  { chave: "keyword", campo: "k", balde: "keyword", rotulo: (nome) => `Filmes com a keyword: ${nome}` },
+  { chave: "diretor", campo: "d", balde: "director", rotulo: (nome) => `Filmes com ${nome}` },
+  { chave: "ator", campo: "c", balde: "cast", rotulo: (nome) => `Filmes com ${nome}` },
+];
+
+async function abrirGrade(rota) {
   _idsVistos = new Set(
     Object.entries(perfilLocal().movies)
       .filter(([, entrada]) => entrada.seen)
@@ -65,14 +76,22 @@ async function abrirGrade(chaveFileiraOuNull, textoVibeOuNull) {
   popularFiltroDecada(movies);
 
   _vibeIdsAtual = null;
-  if (textoVibeOuNull) {
+  if (rota.vibe) {
     const vibes = await carregarVibes();
-    _vibeIdsAtual = buscarVibe(textoVibeOuNull, vibes);
+    _vibeIdsAtual = buscarVibe(rota.vibe, vibes);
   }
 
-  if (chaveFileiraOuNull) {
+  const porPessoaOuKeyword = FILTROS_POR_PESSOA_OU_KEYWORD.find((f) => rota[f.chave] != null);
+
+  if (porPessoaOuKeyword) {
+    const id = rota[porPessoaOuKeyword.chave];
+    const nomes = await carregarNomes();
+    _populacaoBaseAtual = movies.filter((f) => (f[porPessoaOuKeyword.campo] || []).includes(id));
+    const nome = (nomes[porPessoaOuKeyword.balde] && nomes[porPessoaOuKeyword.balde][id]) || `#${id}`;
+    renderizarGrade(filtrarGrade(_populacaoBaseAtual, lerFiltrosAtuais()), porPessoaOuKeyword.rotulo(nome));
+  } else if (rota.parametro) {
     const { shelves } = await carregarFileiras();
-    const fileira = shelves.find((s) => s.key === chaveFileiraOuNull);
+    const fileira = shelves.find((s) => s.key === rota.parametro);
     const idsDaFileira = new Set(fileira ? fileira.ids : []);
     _populacaoBaseAtual = movies.filter((f) => idsDaFileira.has(f.id));
     renderizarGrade(
@@ -81,8 +100,8 @@ async function abrirGrade(chaveFileiraOuNull, textoVibeOuNull) {
     );
   } else {
     _populacaoBaseAtual = movies;
-    const titulo = textoVibeOuNull
-      ? (_vibeIdsAtual ? `Vibe: ${textoVibeOuNull}` : `Nenhuma vibe encontrada para "${textoVibeOuNull}"`)
+    const titulo = rota.vibe
+      ? (_vibeIdsAtual ? `Vibe: ${rota.vibe}` : `Nenhuma vibe encontrada para "${rota.vibe}"`)
       : "Explorar tudo";
     renderizarGrade(filtrarGrade(_populacaoBaseAtual, lerFiltrosAtuais()), titulo);
   }
@@ -136,7 +155,7 @@ async function aoMudarRota(rota) {
     const { shelves } = await carregarFileiras();
     renderizarHome(shelves);
   } else if (rota.tela === "grade") {
-    await abrirGrade(rota.parametro, rota.vibe ?? null);
+    await abrirGrade(rota);
   } else if (rota.tela === "ficha") {
     await abrirFicha(rota.parametro);
   }

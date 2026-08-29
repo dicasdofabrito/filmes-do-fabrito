@@ -79,13 +79,25 @@ function renderizarAcoesFicha(idFilme) {
   }
 }
 
+// Link clicável pra diretor/elenco na ficha -- leva pra grade filtrada por
+// aquela pessoa (mesmo mecanismo de #/grade?keyword=<id>, ver router.js).
+// Sem nome em nomes.json, ainda linka (rótulo cai pra "#<id>") -- diferente
+// dos chips de keyword, que preferem sumir a mostrar um id cru.
+function linkPessoa(id, nome, parametro) {
+  return `<a href="#/grade?${parametro}=${id}" class="link-pessoa">${nome || `#${id}`}</a>`;
+}
+
 export function renderizarFicha(detalhe, nomes) {
   const container = document.getElementById("ficha-conteudo");
 
-  const nomeDiretores = detalhe.d.map((id) => nomes.director[id] || `#${id}`).join(", ");
-  const nomeElenco = detalhe.c.map((id) => nomes.cast[id] || `#${id}`).join(", ");
+  const nomeDiretores = detalhe.d
+    .map((id) => linkPessoa(id, nomes.director[id], "diretor"))
+    .join(", ");
+  const nomeElenco = detalhe.c
+    .map((id) => linkPessoa(id, nomes.cast[id], "ator"))
+    .join(", ");
   const chipsKeywords = detalhe.k
-    .map((id) => nomes.keyword && nomes.keyword[id])
+    .map((id) => (nomes.keyword && nomes.keyword[id] ? { id, nome: nomes.keyword[id] } : null))
     .filter(Boolean);
 
   container.innerHTML = `
@@ -96,7 +108,7 @@ export function renderizarFicha(detalhe, nomes) {
         <p class="ficha-meta">${detalhe.r} min ${nomeDiretores ? "· dirigido por " + nomeDiretores : ""}</p>
         <p class="ficha-sinopse">${detalhe.ov || "Sem sinopse disponível."}</p>
         ${nomeElenco ? `<p class="ficha-elenco"><strong>Elenco:</strong> ${nomeElenco}</p>` : ""}
-        ${chipsKeywords.length ? `<div class="ficha-keywords">${chipsKeywords.map((k) => `<span class="chip">${k}</span>`).join("")}</div>` : ""}
+        ${chipsKeywords.length ? `<div class="ficha-keywords">${chipsKeywords.map(({ id, nome }) => `<a href="#/grade?keyword=${id}" class="chip">${nome}</a>`).join("")}</div>` : ""}
         <div class="ficha-acoes" id="ficha-acoes"></div>
         <div id="ficha-similares"></div>
       </div>

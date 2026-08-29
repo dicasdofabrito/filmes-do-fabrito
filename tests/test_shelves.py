@@ -23,12 +23,12 @@ def _cfg(fileiras: tuple[str, ...]) -> Config:
 
 
 def _filme(id_, *, year=2000, runtime=100, theatrical=False, added="2020-01-01",
-           keywords=(), directors=(), genres=()) -> Movie:
+           keywords=(), directors=(), genres=(), language="en") -> Movie:
     return Movie(
         id=id_, title=f"F{id_}", year=year, runtime=runtime,
         genres=tuple(genres), keywords=tuple(keywords),
         vote_average=7.0, vote_count=1000,
-        directors=tuple(directors), cast=(), language="en",
+        directors=tuple(directors), cast=(), language=language,
         track="acervo", theatrical=theatrical, added=added,
     )
 
@@ -266,6 +266,74 @@ def test_similar_usa_ancora_de_qualidade_quando_afinidade_empata():
 
     assert fileiras[0].key == "similar"
     assert fileiras[0].movie_ids == (2, 3)
+
+
+def test_estrangeiros_traz_apenas_idiomas_fora_de_en_pt_es():
+    catalogo = {
+        1: _filme(1, language="en"),
+        2: _filme(2, language="ja"),
+        3: _filme(3, language="pt"),
+        4: _filme(4, language="fr"),
+        5: _filme(5, language="es"),
+    }
+    fileiras = montar_fileiras(_ctx(catalogo, Profile(), ("estrangeiros",)))
+    assert set(fileiras[0].movie_ids) == {2, 4}
+
+
+def test_antigos_traz_apenas_filmes_com_mais_de_40_anos():
+    catalogo = {
+        1: _filme(1, year=1986),  # hoje.year - year == 40, nao entra (exclusivo)
+        2: _filme(2, year=1985),  # 41 anos, entra
+        3: _filme(3, year=2000),  # nao entra
+    }
+    fileiras = montar_fileiras(_ctx(catalogo, Profile(), ("antigos",)))
+    assert fileiras[0].movie_ids == (2,)
+
+
+def test_antigos_nao_traz_filme_que_tambem_e_estrangeiro():
+    """Filme velho E estrangeiro vai só pra 'Filmes estrangeiros' -- idioma
+    tem prioridade sobre idade quando os dois se aplicam ao mesmo filme."""
+    catalogo = {1: _filme(1, year=1980, language="ja")}
+    fileiras = montar_fileiras(_ctx(catalogo, Profile(), ("antigos", "estrangeiros")))
+    por_chave = {f.key: f for f in fileiras}
+    assert "antigos" not in por_chave
+    assert por_chave["estrangeiros"].movie_ids == (1,)
+
+
+def test_estrangeiros_e_antigos_saem_das_fileiras_de_descoberta_normais():
+    catalogo = {
+        1: _filme(1, runtime=90, language="ja"),  # estrangeiro
+        2: _filme(2, runtime=90, year=1980),  # antigo
+        3: _filme(3, runtime=90),  # elegivel normal
+    }
+    fileiras = montar_fileiras(_ctx(catalogo, Profile(), ("curto",)))
+    assert fileiras[0].movie_ids == (3,)
+
+
+def test_cinemas_exclui_estrangeiros_e_antigos():
+    catalogo = {
+        1: _filme(1, theatrical=True),
+        2: _filme(2, theatrical=True, language="ja"),
+    }
+    fileiras = montar_fileiras(_ctx(catalogo, Profile(), ("cinemas",)))
+    assert fileiras[0].movie_ids == (1,)
+
+
+def test_classicos_nao_inclui_filmes_com_mais_de_40_anos_nem_estrangeiros():
+    catalogo = {
+        1: _filme(1, year=2000),  # 26 anos, classico normal
+        2: _filme(2, year=1980),  # 46 anos, vai pra "antigos"
+        3: _filme(3, year=2000, language="ja"),  # classico mas estrangeiro
+    }
+    fileiras = montar_fileiras(_ctx(catalogo, Profile(), ("classicos",)))
+    assert fileiras[0].movie_ids == (1,)
+
+
+def test_watchlist_ignora_exclusao_de_estrangeiro_e_antigo():
+    catalogo = {1: _filme(1, year=1970, language="ja")}
+    perfil = Profile(movies={1: Entry(want=True, at="2026-08-01")})
+    fileiras = montar_fileiras(_ctx(catalogo, perfil, ("watchlist",)))
+    assert fileiras[0].movie_ids == (1,)
 
 
 def test_similar_exclui_a_referencia_e_os_ja_vistos():

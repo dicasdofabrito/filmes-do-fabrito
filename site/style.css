@@ -129,7 +129,18 @@ main { flex: 1; padding: 16px 20px 40px; }
   border-radius: 999px;
   padding: 3px 10px;
   font-size: 0.8rem;
+  text-decoration: none;
+  color: inherit;
+  cursor: pointer;
 }
+.chip:hover { border-color: var(--acento); color: var(--acento); }
+.link-pessoa {
+  color: inherit;
+  text-decoration: underline;
+  text-decoration-color: var(--borda);
+  cursor: pointer;
+}
+.link-pessoa:hover { color: var(--acento); text-decoration-color: var(--acento); }
 .ficha-acoes { display: flex; gap: 8px; flex-wrap: wrap; margin: 16px 0; }
 .botao-acao {
   background: var(--bg-elevado);

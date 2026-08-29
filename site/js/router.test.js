@@ -38,3 +38,26 @@ test("grade com fileira nao tem vibe quando a query nao existe", () => {
   const rota = analisarHash("#/grade/classicos");
   assert.equal("vibe" in rota, false);
 });
+
+test("grade com query de keyword", () => {
+  assert.deepEqual(analisarHash("#/grade?keyword=16"), {
+    tela: "grade", parametro: null, keyword: 16,
+  });
+});
+
+test("grade com query de diretor", () => {
+  assert.deepEqual(analisarHash("#/grade?diretor=77"), {
+    tela: "grade", parametro: null, diretor: 77,
+  });
+});
+
+test("grade com query de ator", () => {
+  assert.deepEqual(analisarHash("#/grade?ator=88"), {
+    tela: "grade", parametro: null, ator: 88,
+  });
+});
+
+test("query de keyword/diretor/ator nao numerica e ignorada", () => {
+  const rota = analisarHash("#/grade?keyword=abc");
+  assert.equal("keyword" in rota, false);
+});
