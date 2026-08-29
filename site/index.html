@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Filmes do Fabrito</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header class="cabecalho">
+    <a href="#/" class="logo-app">Filmes do Fabrito</a>
+    <input type="search" id="busca-vibe" placeholder="Busque por vibe: fim do mundo, assalto, luto..." />
+  </header>
+
+  <main id="app">
+    <section id="tela-home" class="tela oculto">
+      <div id="lista-fileiras"></div>
+    </section>
+
+    <section id="tela-grade" class="tela oculto">
+      <div class="grade-cabecalho">
+        <h2 id="grade-titulo"></h2>
+        <div class="grade-filtros">
+          <select id="filtro-genero"><option value="">Gênero</option></select>
+          <select id="filtro-decada"><option value="">Década</option></select>
+          <select id="filtro-duracao">
+            <option value="">Duração</option>
+            <option value="curto">Até 100 min</option>
+            <option value="longo">Mais de 100 min</option>
+          </select>
+          <select id="filtro-visto">
+            <option value="">Visto?</option>
+            <option value="nao-visto">Só não vistos</option>
+            <option value="visto">Só vistos</option>
+          </select>
+        </div>
+      </div>
+      <div id="grade-posteres" class="grade-posteres"></div>
+    </section>
+
+    <section id="tela-ficha" class="tela oculto">
+      <div id="ficha-conteudo"></div>
+    </section>
+
+    <section id="onboarding" class="tela oculto">
+      <h2>Antes de começar</h2>
+      <p>Marque rapidamente o que você já viu, gostou ou não gostou. Isso treina o motor de recomendação.</p>
+      <div id="onboarding-cartoes"></div>
+    </section>
+  </main>
+
+  <footer class="rodape-atribuicao">
+    <img src="assets/tmdb-logo.svg" alt="TMDB" class="logo-tmdb" />
+    <p>Este produto usa a API do TMDB, mas não é endossado nem certificado pelo TMDB.</p>
+  </footer>
+
+  <script type="module" src="js/app.js"></script>
+</body>
+</html>
