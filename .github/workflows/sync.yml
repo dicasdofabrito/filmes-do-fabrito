@@ -33,8 +33,34 @@ jobs:
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add data/
           git add -f site/data/
-          git diff --staged --quiet || git commit -m "chore: sync diário do catálogo"
-          git push
+
+          if git diff --staged --quiet; then
+            echo "nada mudou, sem commit"
+            exit 0
+          fi
+
+          git commit -m "chore: sync diário do catálogo"
+
+          # git push pode ser rejeitado se o master remoto avançou entre o
+          # checkout deste job e este ponto (ex.: um push manual acontecendo
+          # ao mesmo tempo do cron) -- não é um erro real do sync, só uma
+          # corrida comum em qualquer repo com mais de um escritor. Em vez
+          # de falhar na primeira rejeição, tenta de novo com rebase.
+          sucesso=false
+          for tentativa in 1 2 3; do
+            if git push; then
+              sucesso=true
+              break
+            fi
+            echo "push rejeitado (tentativa $tentativa/3) -- rebase e tenta de novo"
+            git fetch origin master
+            git rebase origin/master
+          done
+
+          if [ "$sucesso" != "true" ]; then
+            echo "push falhou apos 3 tentativas de rebase"
+            exit 1
+          fi
 
       - name: Abre issue se o sync falhou
         if: failure()
