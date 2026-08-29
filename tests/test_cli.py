@@ -739,3 +739,32 @@ async def test_vibes_ausente_nao_derruba_o_build(tmp_path, caplog):
     )
     # A fileira "vibe" simplesmente não aparece — o build não é abortado.
     assert dados["shelves"] == []
+
+
+# ---------------------------------------------------------------------------
+# IMPORTANTE 4.5: nomes de keyword também persistem em data/nomes.json,
+# junto com director e cast.
+# ---------------------------------------------------------------------------
+
+
+@respx.mock
+async def test_nomes_de_keyword_sao_persistidos(tmp_path):
+    hoje = date(2026, 8, 27)
+    _mock_exports_sem_novidade(hoje)
+
+    raiz = _preparar_raiz(
+        tmp_path,
+        catalogo=[_filme(42, track="recente", added="2026-08-01", vote_count=10)],
+        perfil={"movies": {}},
+    )
+
+    detalhe_42 = _detalhe(42, vote_count=12, release_date="2026-06-01")
+    detalhe_42["keywords"] = {"keywords": [{"id": 900, "name": "vinganca"}]}
+    respx.get("https://api.themoviedb.org/3/movie/42").mock(
+        return_value=httpx.Response(200, json=detalhe_42)
+    )
+
+    await executar(raiz=raiz, token="tok", hoje=hoje, carga_inicial=False)
+
+    nomes = json.loads((raiz / "data" / "nomes.json").read_text(encoding="utf-8"))
+    assert nomes["keyword"]["900"] == "vinganca"

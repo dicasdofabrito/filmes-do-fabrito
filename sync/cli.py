@@ -156,22 +156,26 @@ def _escrever_ids_ontem(raiz: Path, ids: set[int]) -> None:
 
 
 def _carregar_nomes(raiz: Path) -> dict[str, dict[int, str]]:
-    """Nomes de diretores e elenco aprendidos em rodadas anteriores.
+    """Nomes de diretores, elenco e keywords aprendidos em rodadas anteriores.
 
     Um filme só tem seus detalhes buscados de novo quando entra no
     catálogo ou enquanto está na trilha "recente" — uma vez virado
     "acervo", nunca mais é refeito. Sem persistir os nomes, as fileiras
     "Mais de" e "Com" acabariam mostrando o id numérico da pessoa em vez do
-    nome assim que o filme que a trouxe parasse de ser reprocessado.
+    nome assim que o filme que a trouxe parasse de ser reprocessado. Mesmo
+    com as keywords: seus nomes já chegam na resposta de /movie/{id}, e sem
+    persistir não haveria como recuperá-los depois que o filme parasse de ser
+    reprocessado.
     """
     caminho = raiz / "data" / "nomes.json"
     if not caminho.exists():
-        return {"director": {}, "cast": {}}
+        return {"director": {}, "cast": {}, "keyword": {}}
 
     bruto = json.loads(caminho.read_text(encoding="utf-8"))
     return {
         "director": {int(k): v for k, v in (bruto.get("director") or {}).items()},
         "cast": {int(k): v for k, v in (bruto.get("cast") or {}).items()},
+        "keyword": {int(k): v for k, v in (bruto.get("keyword") or {}).items()},
     }
 
 
@@ -290,6 +294,9 @@ async def executar(
                 nomes["director"][pessoa["id"]] = pessoa.get("name", "")
         for pessoa in (creditos.get("cast") or [])[:5]:
             nomes["cast"][pessoa["id"]] = pessoa.get("name", "")
+        palavras = (detalhe.get("keywords") or {}).get("keywords") or []
+        for palavra in palavras:
+            nomes["keyword"][palavra["id"]] = palavra.get("name", "")
 
     gosto = construir_gosto(perfil, catalogo, k=cfg.motor.suavizacao_k)
     pontuacao = pontuar(catalogo, gosto, cfg.motor)
