@@ -2654,12 +2654,22 @@ export function renderizarOnboarding(filmes, aoConcluir) {
 ```
 
 Em `site/js/app.js`, na função `iniciar`, decida se mostra onboarding em
-vez da home quando o perfil estiver vazio:
+vez da home quando o perfil estiver vazio.
+
+**Atenção aos imports** — `app.js` já tem, desde as Tasks 10/12/14:
+```javascript
+import { renderizarHome, renderizarGrade, popularFiltroGenero, renderizarFicha, renderizarSimilares } from "./ui.js";
+...
+import { perfilLocal } from "./perfil.js";
+```
+Acrescente `renderizarOnboarding` à lista já importada de `"./ui.js"` (não
+crie uma segunda linha `import ... from "./ui.js"`). **Não** adicione um
+novo `import { perfilLocal } from "./perfil.js";` — já existe, e uma
+segunda declaração do mesmo identificador vindo do mesmo módulo é
+`SyntaxError: Identifier 'perfilLocal' has already been declared`. Só
+substitua o corpo de `iniciar()` pelo de baixo:
 
 ```javascript
-import { renderizarOnboarding } from "./ui.js";
-import { perfilLocal } from "./perfil.js";
-
 async function iniciar() {
   const { movies } = await carregarCatalogo();
   await carregarFileiras();
