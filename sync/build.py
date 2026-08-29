@@ -110,10 +110,9 @@ def escrever_site_data(
         {str(k): sorted(v) for k, v in sorted(invertido.items())},
     )
 
-    caminho_catalogo = destino.parent.parent / "data" / "catalog.jsonl"
-    if caminho_catalogo.exists():
-        offsets = calcular_offsets(caminho_catalogo)
-        _escrever(
-            destino / "offsets.json",
-            {str(id_): [inicio, fim] for id_, (inicio, fim) in sorted(offsets.items())},
-        )
+    caminho_catalogo = destino.parent / "data" / "catalog.jsonl"
+    offsets = calcular_offsets(caminho_catalogo)
+    _escrever(
+        destino / "offsets.json",
+        {str(id_): [inicio, fim] for id_, (inicio, fim) in sorted(offsets.items())},
+    )
