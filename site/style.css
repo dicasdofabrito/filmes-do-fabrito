@@ -92,3 +92,27 @@ main { flex: 1; padding: 16px 20px 40px; }
   display: block;
 }
 .poster img { width: 100%; height: 100%; object-fit: cover; display: block; }
+
+.grade-cabecalho {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.grade-filtros { display: flex; gap: 8px; flex-wrap: wrap; }
+.grade-filtros select {
+  background: var(--bg-elevado);
+  color: var(--texto);
+  border: 1px solid var(--borda);
+  border-radius: 6px;
+  padding: 6px 8px;
+}
+
+.grade-posteres {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+  gap: 12px;
+}
