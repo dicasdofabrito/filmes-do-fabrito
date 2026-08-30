@@ -41,9 +41,13 @@ body {
   white-space: nowrap;
 }
 
-#busca-vibe {
+.form-busca-vibe {
   flex: 1;
   max-width: 420px;
+}
+
+#busca-vibe {
+  width: 100%;
   background: var(--bg-elevado);
   border: 1px solid var(--borda);
   border-radius: 8px;

@@ -113,9 +113,14 @@ for (const idFiltro of ["filtro-genero", "filtro-decada", "filtro-duracao", "fil
   });
 }
 
-document.getElementById("busca-vibe").addEventListener("keydown", (evento) => {
-  if (evento.key !== "Enter") return;
-  const texto = evento.target.value.trim();
+// Formulário em vez de só um listener de "keydown" de Enter: o botão
+// "Buscar"/"Ir" do teclado virtual em celular nem sempre dispara um
+// keydown com key "Enter" para <input type="search"> (comportamento
+// inconsistente entre iOS Safari e Android Chrome) -- mas SEMPRE dispara
+// "submit" num <form>, que é o mecanismo padrão e mais robusto pra isso.
+document.getElementById("form-busca-vibe").addEventListener("submit", (evento) => {
+  evento.preventDefault();
+  const texto = document.getElementById("busca-vibe").value.trim();
   if (!texto) return;
   navegarPara(`#/grade?vibe=${encodeURIComponent(texto)}`);
 });
