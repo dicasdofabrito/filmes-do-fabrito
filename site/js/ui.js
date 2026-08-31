@@ -100,11 +100,18 @@ export function renderizarFicha(detalhe, nomes) {
     .map((id) => (nomes.keyword && nomes.keyword[id] ? { id, nome: nomes.keyword[id] } : null))
     .filter(Boolean);
 
+  // Nota do TMDB (0-10) + contagem de votos, sempre juntas -- uma nota alta
+  // com poucos votos é bem menos confiável, e mostrar as duas deixa o
+  // Fabio julgar isso sozinho em vez de esconder.
+  const nota = typeof detalhe.v === "number" ? detalhe.v.toFixed(1) : null;
+  const votos = typeof detalhe.n === "number" ? detalhe.n.toLocaleString("pt-BR") : null;
+
   container.innerHTML = `
     <div class="ficha">
       <img class="ficha-poster" src="${detalhe.p ? URL_POSTER_GRANDE + detalhe.p : ""}" alt="${detalhe.t}" />
       <div class="ficha-info">
         <h2>${detalhe.t} ${detalhe.y ? `(${detalhe.y})` : ""}</h2>
+        ${nota ? `<p class="ficha-nota">⭐ ${nota} <span class="ficha-nota-votos">(${votos} votos)</span></p>` : ""}
         <p class="ficha-meta">${detalhe.r} min ${nomeDiretores ? "· dirigido por " + nomeDiretores : ""}</p>
         <p class="ficha-sinopse">${detalhe.ov || "Sem sinopse disponível."}</p>
         ${nomeElenco ? `<p class="ficha-elenco"><strong>Elenco:</strong> ${nomeElenco}</p>` : ""}
