@@ -74,6 +74,25 @@ test("enviarPendencias mescla e envia quando ha token", async () => {
   assert.equal(enviado.movies["603"].rating, 1);
 });
 
+test("enviarPendencias mantem o perfil local populado depois de enviar", async () => {
+  // Bug real: enviarPendencias zerava _perfil pra {movies:{}} depois de
+  // mandar pro GitHub, apagando o estado que a ficha usa pra mostrar os
+  // botoes "ativo". Isso passava despercebido enquanto enviarPendencias só
+  // rodava 4s depois de um clique (a ficha já tinha renderizado o estado
+  // certo antes do apagão) -- mas sincronizarNaAbertura+enviarPendencias no
+  // boot do app expôs isso: abrir uma ficha logo depois do envio em
+  // segundo plano mostrava tudo desmarcado, até recarregar a página.
+  _resetarParaTeste();
+  mock.method(github, "obterToken", () => "tok_teste");
+  mock.method(github, "lerPerfilRemoto", async () => ({ perfil: { movies: {} }, sha: "sha1" }));
+  mock.method(github, "salvarPerfilRemoto", async () => ({ sha: "sha2" }));
+
+  registrarAvaliacao(603, { rating: 1, seen: true });
+  await enviarPendencias();
+
+  assert.equal(perfilLocal().movies["603"].rating, 1);
+});
+
 test("sincronizarNaAbertura nao faz nada sem token", async () => {
   _resetarParaTeste();
   let chamouGithub = false;
