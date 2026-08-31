@@ -55,6 +55,24 @@ body {
   color: var(--texto);
 }
 
+.painel-sync {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 12px 20px;
+  border-bottom: 1px solid var(--borda);
+  background: var(--bg-elevado);
+}
+.painel-sync input {
+  flex: 1;
+  min-width: 200px;
+  background: var(--bg);
+  border: 1px solid var(--borda);
+  border-radius: 8px;
+  padding: 8px 12px;
+  color: var(--texto);
+}
+
 main { flex: 1; padding: 16px 20px 40px; }
 
 .rodape-atribuicao {

@@ -135,19 +135,33 @@ function atualizarBotaoSync() {
   botao.className = temToken ? "botao-acao ativo" : "botao-acao";
 }
 
-document.getElementById("btn-sync").addEventListener("click", async () => {
-  if (obterToken()) {
-    const trocar = window.confirm(
-      "Sincronização já configurada com o GitHub. Quer colar um token novo (ex.: se o antigo expirou)?"
-    );
-    if (!trocar) return;
-  }
-  const novo = window.prompt(
-    "Cole seu token do GitHub (permissão de escrita só neste repositório):"
-  );
-  if (!novo || !novo.trim()) return;
+// Campo próprio na página em vez de window.prompt()/confirm() -- navegadores
+// embutidos dentro de apps (o do app do Google, Instagram, Facebook etc.)
+// costumam bloquear silenciosamente as caixas nativas do navegador: o
+// clique roda, mas a caixa nunca aparece, e para o usuário parece que o
+// botão "não faz nada". HTML/DOM normal funciona em qualquer WebView.
+const painelSync = document.getElementById("painel-sync");
+const inputToken = document.getElementById("input-token");
 
-  salvarToken(novo.trim());
+document.getElementById("btn-sync").addEventListener("click", () => {
+  inputToken.value = "";
+  inputToken.placeholder = obterToken()
+    ? "Já configurado -- cole um token novo pra trocar"
+    : "Cole aqui o token do GitHub";
+  painelSync.classList.remove("oculto");
+  inputToken.focus();
+});
+
+document.getElementById("btn-cancelar-token").addEventListener("click", () => {
+  painelSync.classList.add("oculto");
+});
+
+document.getElementById("btn-salvar-token").addEventListener("click", async () => {
+  const novo = inputToken.value.trim();
+  if (!novo) return;
+
+  salvarToken(novo);
+  painelSync.classList.add("oculto");
   atualizarBotaoSync();
   // Puxa o que já existe no GitHub (avaliado em outro aparelho) e manda
   // qualquer avaliação pendente feita aqui antes de configurar o token --
