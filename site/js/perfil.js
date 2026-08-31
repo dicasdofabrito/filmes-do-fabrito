@@ -76,7 +76,11 @@ export async function enviarPendencias() {
   const mesclado = _dependenciasGithub.mesclarPerfis(remoto, perfil);
   await _dependenciasGithub.salvarPerfilRemoto(token, mesclado, sha);
 
-  _perfil = { movies: {} };
+  // NÃO zera pra {movies:{}} -- isso apagava o estado que a ficha usa pra
+  // mostrar os botões "ativo" (bug real, ver perfil.test.js). Depois de um
+  // envio bem-sucedido, o que está seguro no GitHub é exatamente `mesclado`
+  // -- o perfil local deve continuar refletindo isso, não voltar a zero.
+  _perfil = mesclado;
   persistirNoStorage();
 }
 
