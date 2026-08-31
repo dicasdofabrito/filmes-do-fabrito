@@ -88,6 +88,35 @@ def test_cinemas_traz_apenas_os_em_cartaz():
     assert fileiras[0].movie_ids == (1,)
 
 
+def test_cinemas_exclui_filmes_ja_vistos():
+    catalogo = {1: _filme(1, theatrical=True), 2: _filme(2, theatrical=True)}
+    perfil = Profile(movies={2: Entry(seen=True, at="2026-08-01")})
+    fileiras = montar_fileiras(_ctx(catalogo, perfil, ("cinemas",)))
+    assert fileiras[0].movie_ids == (1,)
+
+
+def test_talvez_rever_traz_so_os_marcados_como_gostei():
+    catalogo = {1: _filme(1), 2: _filme(2), 3: _filme(3), 4: _filme(4)}
+    perfil = Profile(movies={
+        1: Entry(seen=True, rating=1, at="2026-08-01"),  # gostei -- entra
+        2: Entry(seen=True, rating=-1, at="2026-08-01"),  # nao gostei -- fora
+        3: Entry(seen=True, at="2026-08-01"),  # so visto, sem nota -- fora
+        4: Entry(want=True, at="2026-08-01"),  # quero ver, nao visto -- fora
+    })
+    fileiras = montar_fileiras(_ctx(catalogo, perfil, ("talvez_rever",)))
+    assert fileiras[0].movie_ids == (1,)
+
+
+def test_watchlist_traz_filme_visto_e_gostado_se_marcado_quero_ver_de_novo():
+    """Watchlist nunca aplica a exclusao de "ja visto" -- se o Fabio marcar
+    "quero ver" um filme que ja assistiu e gostou (quer rever), ele continua
+    aparecendo na watchlist normalmente, sem precisar desmarcar nada."""
+    catalogo = {1: _filme(1)}
+    perfil = Profile(movies={1: Entry(seen=True, rating=1, want=True, at="2026-08-01")})
+    fileiras = montar_fileiras(_ctx(catalogo, perfil, ("watchlist",)))
+    assert fileiras[0].movie_ids == (1,)
+
+
 def test_curto_filtra_por_duracao_e_exclui_vistos():
     catalogo = {1: _filme(1, runtime=95), 2: _filme(2, runtime=140), 3: _filme(3, runtime=90)}
     perfil = Profile(movies={3: Entry(seen=True, at="2026-08-01")})

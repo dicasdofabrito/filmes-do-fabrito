@@ -3,7 +3,8 @@ import { carregarCatalogo, carregarFileiras, filtrarGrade, obterFilme, obterDeta
 import { renderizarHome, renderizarGrade, popularFiltroGenero, renderizarFicha, renderizarSimilares, renderizarOnboarding } from "./ui.js";
 import { carregarVibes, buscarVibe } from "./vibes.js";
 import { filmesSimilares } from "./motor.js";
-import { perfilLocal } from "./perfil.js";
+import { perfilLocal, sincronizarNaAbertura, enviarPendencias } from "./perfil.js";
+import { obterToken, salvarToken } from "./github.js";
 
 const TELAS = {
   home: document.getElementById("tela-home"),
@@ -125,6 +126,39 @@ document.getElementById("form-busca-vibe").addEventListener("submit", (evento) =
   navegarPara(`#/grade?vibe=${encodeURIComponent(texto)}`);
 });
 
+// Sem isso, obterToken()/salvarToken() (github.js, desde a Task 13) nunca
+// eram chamadas por nada -- não existia jeito de colar o token pela UI.
+function atualizarBotaoSync() {
+  const botao = document.getElementById("btn-sync");
+  const temToken = Boolean(obterToken());
+  botao.textContent = temToken ? "✅ Sincronização ativa" : "🔑 Configurar sincronização";
+  botao.className = temToken ? "botao-acao ativo" : "botao-acao";
+}
+
+document.getElementById("btn-sync").addEventListener("click", async () => {
+  if (obterToken()) {
+    const trocar = window.confirm(
+      "Sincronização já configurada com o GitHub. Quer colar um token novo (ex.: se o antigo expirou)?"
+    );
+    if (!trocar) return;
+  }
+  const novo = window.prompt(
+    "Cole seu token do GitHub (permissão de escrita só neste repositório):"
+  );
+  if (!novo || !novo.trim()) return;
+
+  salvarToken(novo.trim());
+  atualizarBotaoSync();
+  // Puxa o que já existe no GitHub (avaliado em outro aparelho) e manda
+  // qualquer avaliação pendente feita aqui antes de configurar o token --
+  // sem esperar o debounce de agendarEnvio(), que só dispara na próxima
+  // vez que algo mudar.
+  await sincronizarNaAbertura();
+  await enviarPendencias();
+});
+
+atualizarBotaoSync();
+
 let _nomes = null;
 async function carregarNomes() {
   if (_nomes) return _nomes;
@@ -169,6 +203,13 @@ async function aoMudarRota(rota) {
 async function iniciar() {
   const { movies } = await carregarCatalogo();
   await carregarFileiras();
+
+  // Puxa o perfil remoto ANTES de decidir onboarding-vs-home -- sem isso,
+  // um aparelho novo com token colado mas localStorage vazio veria o
+  // onboarding de novo, mesmo já tendo avaliado dezenas de filmes em
+  // outro navegador.
+  await sincronizarNaAbertura();
+  enviarPendencias().catch(() => {}); // flush de pendencia de sessao anterior, sem bloquear a tela
 
   const perfilVazio = Object.keys(perfilLocal().movies).length === 0;
   if (perfilVazio && !localStorage.getItem("fdf_onboarding_visto")) {

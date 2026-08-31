@@ -87,7 +87,7 @@ def _melhor_do_tipo(ctx: Contexto, tipo: str) -> object | None:
     return max(candidatos, key=candidatos.get) if candidatos else None
 
 
-# --- as treze fileiras ------------------------------------------------------
+# --- as catorze fileiras ------------------------------------------------------
 
 
 def _watchlist(ctx: Contexto) -> tuple[str, tuple[int, ...]]:
@@ -285,12 +285,21 @@ def _ponto_cego(ctx: Contexto) -> tuple[str, tuple[int, ...]]:
 
 
 def _cinemas(ctx: Contexto) -> tuple[str, tuple[int, ...]]:
+    vistos = ctx.perfil.seen_ids()
     ids = {
         i
         for i, filme in ctx.catalogo.items()
-        if filme.theatrical and not _estrangeiro(filme) and not _antigo(ctx, filme)
+        if filme.theatrical
+        and not _estrangeiro(filme)
+        and not _antigo(ctx, filme)
+        and i not in vistos
     }
     return "Nos cinemas", _ordenar(ctx, ids)
+
+
+def _talvez_rever(ctx: Contexto) -> tuple[str, tuple[int, ...]]:
+    ids = ctx.perfil.liked_ids() & set(ctx.catalogo)
+    return "Talvez você queira rever", _ordenar(ctx, ids)
 
 
 def _estrangeiros(ctx: Contexto) -> tuple[str, tuple[int, ...]]:
@@ -313,6 +322,7 @@ def _antigos(ctx: Contexto) -> tuple[str, tuple[int, ...]]:
 
 GERADORES = {
     "watchlist": _watchlist,
+    "talvez_rever": _talvez_rever,
     "novos": _novos,
     "similar": _similar,
     "vibe": _vibe,

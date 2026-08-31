@@ -80,6 +80,25 @@ export async function enviarPendencias() {
   persistirNoStorage();
 }
 
+// Puxa o perfil remoto e mescla com o local -- sem isso, um aparelho novo
+// (ou localStorage limpo) nunca aprende o que já foi avaliado em outro
+// lugar, mesmo colando o mesmo token: enviarPendencias só EMPURRA quando
+// há algo pendente local, nunca busca o que já existe no GitHub por conta
+// própria. Chamada uma vez na abertura do app (ver app.js/iniciar).
+export async function sincronizarNaAbertura() {
+  const token = _dependenciasGithub.obterToken();
+  if (!token) return;
+
+  try {
+    const { perfil: remoto } = await _dependenciasGithub.lerPerfilRemoto(token);
+    const local = carregarDoStorage();
+    _perfil = _dependenciasGithub.mesclarPerfis(remoto, local);
+    persistirNoStorage();
+  } catch (erro) {
+    console.error("falha ao sincronizar perfil remoto na abertura:", erro);
+  }
+}
+
 export function _resetarParaTeste() {
   _perfil = { movies: {} };
   if (_timerEnvio) clearTimeout(_timerEnvio);

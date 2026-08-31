@@ -124,7 +124,9 @@ main { flex: 1; padding: 16px 20px 40px; }
 .ficha { display: flex; gap: 24px; flex-wrap: wrap; }
 .ficha-poster { width: 280px; border-radius: 10px; flex-shrink: 0; }
 .ficha-info { flex: 1; min-width: 260px; }
-.ficha-meta { color: var(--texto-fraco); margin: 6px 0 14px; }
+.ficha-nota { margin: 6px 0 0; font-weight: 600; }
+.ficha-nota-votos { color: var(--texto-fraco); font-weight: 400; font-size: 0.85rem; }
+.ficha-meta { color: var(--texto-fraco); margin: 4px 0 14px; }
 .ficha-sinopse { line-height: 1.5; margin-bottom: 14px; }
 .ficha-keywords { display: flex; flex-wrap: wrap; gap: 6px; margin: 10px 0; }
 .chip {

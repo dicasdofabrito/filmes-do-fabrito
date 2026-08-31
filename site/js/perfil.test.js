@@ -20,6 +20,7 @@ import {
   registrarAvaliacao,
   perfilLocal,
   enviarPendencias,
+  sincronizarNaAbertura,
   _resetarParaTeste,
   _dependenciasGithub as github,
 } from "./perfil.js";
@@ -71,4 +72,44 @@ test("enviarPendencias mescla e envia quando ha token", async () => {
   await enviarPendencias();
 
   assert.equal(enviado.movies["603"].rating, 1);
+});
+
+test("sincronizarNaAbertura nao faz nada sem token", async () => {
+  _resetarParaTeste();
+  let chamouGithub = false;
+  mock.method(github, "obterToken", () => null);
+  mock.method(github, "lerPerfilRemoto", async () => { chamouGithub = true; });
+
+  await sincronizarNaAbertura();
+
+  assert.equal(chamouGithub, false);
+});
+
+test("sincronizarNaAbertura puxa o perfil remoto e popula o local vazio", async () => {
+  _resetarParaTeste();
+  mock.method(github, "obterToken", () => "tok_teste");
+  mock.method(github, "lerPerfilRemoto", async () => ({
+    perfil: { movies: { "603": { seen: true, rating: 1, at: "2026-08-20" } } },
+    sha: "sha1",
+  }));
+
+  await sincronizarNaAbertura();
+
+  assert.equal(perfilLocal().movies["603"].rating, 1);
+});
+
+test("sincronizarNaAbertura mescla com o local em vez de sobrescrever", async () => {
+  _resetarParaTeste();
+  registrarAvaliacao(1, { want: true }); // so existe local
+  mock.method(github, "obterToken", () => "tok_teste");
+  mock.method(github, "lerPerfilRemoto", async () => ({
+    perfil: { movies: { "603": { seen: true, rating: 1, at: "2026-08-20" } } },
+    sha: "sha1",
+  }));
+
+  await sincronizarNaAbertura();
+
+  const perfil = perfilLocal();
+  assert.equal(perfil.movies["1"].want, true); // preservado
+  assert.equal(perfil.movies["603"].rating, 1); // puxado do remoto
 });
