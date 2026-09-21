@@ -1504,8 +1504,10 @@
       "rating": 1
     },
     "597922": {
-      "want": true,
-      "at": "2026-09-02"
+      "want": false,
+      "at": "2026-09-21",
+      "seen": true,
+      "rating": 1
     },
     "600354": {
       "want": true,
